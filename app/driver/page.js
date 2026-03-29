@@ -4,6 +4,8 @@ import { requireRole } from "../../lib/auth"
 import { initializeDatabase } from "../../lib/db"
 import { getPortalData } from "../../lib/repository"
 
+export const dynamic = "force-dynamic"
+
 export default async function DriverPage() {
   await initializeDatabase()
   const session = await requireRole("driver")

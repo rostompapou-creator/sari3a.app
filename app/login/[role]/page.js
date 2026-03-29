@@ -4,6 +4,8 @@ import { DEMO_ACCOUNTS } from "../../../lib/constants"
 import { initializeDatabase } from "../../../lib/db"
 import { isDemoDataEnabled } from "../../../lib/runtime"
 
+export const dynamic = "force-dynamic"
+
 export default async function LoginRolePage({ params }) {
   await initializeDatabase()
   const { role } = await params
