@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { PORTALS } from "../lib/constants"
 import { Sari3aLogo } from "./Sari3aLogo"
 
 const driverTemplate = {
@@ -128,18 +127,11 @@ export function LandingExperience({ stats, settings, governorates }) {
 
         <div className="landing-visual glass-card">
           <div className="wing-ornament" aria-hidden="true" />
-          <div className="visual-copy">
-            <p className="eyebrow">Splash screen</p>
-            <h2>4 portails + 2 recrutements publics</h2>
-            <p>Connexion rolee, theme premium et parcours public pour rejoindre le reseau Sari3a.</p>
-          </div>
-          <div className="portal-grid">
-            {PORTALS.map((portal) => (
-              <Link href={portal.href} key={portal.role} className="portal-tile">
-                <strong>{portal.label}</strong>
-                <p>{portal.description}</p>
-              </Link>
-            ))}
+          <div className="landing-logo-stage">
+            <div className="landing-logo-large">
+              <Sari3aLogo />
+            </div>
+            <p className="landing-logo-caption">Plateforme de livraison rapide pour la Tunisie</p>
           </div>
         </div>
       </section>

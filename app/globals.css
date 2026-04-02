@@ -328,6 +328,40 @@ label {
     radial-gradient(circle at top right, rgba(214, 163, 40, 0.12), transparent 35%);
 }
 
+.landing-logo-stage {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1.2rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+.landing-logo-large .brand-mark {
+  display: grid;
+  justify-items: center;
+  gap: 1.25rem;
+}
+
+.landing-logo-large .brand-logo-frame {
+  width: clamp(160px, 22vw, 240px);
+  height: clamp(160px, 22vw, 240px);
+  border-radius: 34px;
+}
+
+.landing-logo-large .brand-title {
+  font-size: clamp(3.2rem, 7vw, 6.2rem);
+}
+
+.landing-logo-caption {
+  margin: 0;
+  color: rgba(247, 241, 228, 0.76);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.88rem;
+}
+
 .wing-ornament {
   position: absolute;
   inset: 1rem auto auto -3rem;
@@ -1563,6 +1597,21 @@ label {
 
   .landing-visual {
     padding-top: 1.1rem;
+  }
+
+  .landing-logo-large .brand-logo-frame {
+    width: clamp(130px, 36vw, 180px);
+    height: clamp(130px, 36vw, 180px);
+    border-radius: 26px;
+  }
+
+  .landing-logo-large .brand-title {
+    font-size: clamp(2.2rem, 10vw, 3.5rem);
+  }
+
+  .landing-logo-caption {
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
   }
 
   .portal-tile {
