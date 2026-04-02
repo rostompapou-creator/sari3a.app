@@ -101,6 +101,58 @@ function slugifyStatusLabel(label) {
     .replace(/^_+|_+$/g, "")
 }
 
+function ActionIcon({ name }) {
+  const icons = {
+    add: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+    ),
+    print: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7 9V4h10v5M7 17H5V9h14v8h-2M8 14h8v6H8z" />
+      </svg>
+    ),
+    view: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
+    edit: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20l4.5-1 9-9-3.5-3.5-9 9L4 20zM13.5 6.5l3.5 3.5" />
+      </svg>
+    ),
+    close: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" />
+      </svg>
+    ),
+    delete: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7h16M9 7V4h6v3M8 7l1 13h6l1-13M10 10v7M14 10v7" />
+      </svg>
+    ),
+    settings: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3l1.3 2.6 2.9.4-2.1 2.1.5 2.9L12 9.8 9.4 11l.5-2.9-2.1-2.1 2.9-.4L12 3zM12 14a2 2 0 110 4 2 2 0 010-4z" />
+        <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1" />
+      </svg>
+    )
+  }
+
+  return icons[name] ?? null
+}
+
+function IconButton({ icon, label, className = "secondary-button", ...props }) {
+  return (
+    <button type="button" className={`${className} icon-button`} aria-label={label} title={label} {...props}>
+      <ActionIcon name={icon} />
+    </button>
+  )
+}
+
 export function PortalDashboard({ role, initialData }) {
   const router = useRouter()
   const [data, setData] = useState(initialData)
@@ -933,44 +985,32 @@ export function PortalDashboard({ role, initialData }) {
   function renderAdminConsole() {
     return (
       <section className="admin-console-section">
-        <div className="panel glass-card">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">Admin</p>
-              <h2>Back-office societe</h2>
-            </div>
-            <span className="role-badge">Recherche multi-critere + impression</span>
-          </div>
-
+        <div className="panel glass-card admin-console-panel">
           <div className="admin-console">
             <div className="admin-content">
               <div className="admin-toolbar">
-                <div>
-                  <p className="eyebrow">Liste active</p>
-                  <h3>{adminSections.find((section) => section.key === adminSection)?.label}</h3>
-                  <span>Les donnees sont affichees en table avec actions directes et recherche multi-critere.</span>
-                </div>
+                <input
+                  className="admin-search-input"
+                  value={adminSearch}
+                  placeholder="Recherche multi-critere : nom, email, telephone, gouvernorat, statut..."
+                  onChange={(event) => setAdminSearch(event.target.value)}
+                />
                 <div className="admin-toolbar-actions">
-                  <input
-                    className="admin-search-input"
-                    value={adminSearch}
-                    placeholder="Recherche multi-critere : nom, email, telephone, gouvernorat, statut..."
-                    onChange={(event) => setAdminSearch(event.target.value)}
-                  />
                   {adminSection === "shipments" ? (
                     <>
-                      <button type="button" className="primary-button" onClick={() => openShipmentEditor()}>
-                        Ajouter
-                      </button>
-                      <button type="button" className="secondary-button" onClick={() => printShipmentList("Liste des colis", adminShipments)}>
-                        Imprimer
-                      </button>
+                      <IconButton icon="add" label="Ajouter un colis" className="primary-button" onClick={() => openShipmentEditor()} />
+                      <IconButton
+                        icon="print"
+                        label="Imprimer la liste des colis"
+                        onClick={() => printShipmentList("Liste des colis", adminShipments)}
+                      />
                     </>
                   ) : null}
                   {["clients", "partners", "drivers", "users"].includes(adminSection) ? (
                     <>
-                      <button
-                        type="button"
+                      <IconButton
+                        icon="add"
+                        label={`Ajouter ${adminSections.find((section) => section.key === adminSection)?.label ?? "un enregistrement"}`}
                         className="primary-button"
                         onClick={() =>
                           openUserForm(
@@ -979,50 +1019,38 @@ export function PortalDashboard({ role, initialData }) {
                               : adminSection === "partners"
                                 ? "partner"
                                 : adminSection === "drivers"
-                                  ? "driver"
+                                ? "driver"
                                   : "admin"
                           )
                         }
-                      >
-                        Ajouter
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
+                      />
+                      <IconButton
+                        icon="print"
+                        label={`Imprimer ${adminSections.find((section) => section.key === adminSection)?.label ?? "la liste"}`}
                         onClick={() =>
                           printUserList(
                             `Liste ${adminSections.find((section) => section.key === adminSection)?.label}`,
                             adminUsers
                           )
                         }
-                      >
-                        Imprimer
-                      </button>
+                      />
                     </>
                   ) : null}
                   {adminSection === "settings" ? (
                     <>
-                      <button type="button" className="primary-button" onClick={() => openSettingsDialog("edit")}>
-                        Modifier
-                      </button>
-                      <button type="button" className="secondary-button" onClick={printSettingsOverview}>
-                        Imprimer
-                      </button>
+                      <IconButton icon="settings" label="Modifier les parametres" className="primary-button" onClick={() => openSettingsDialog("edit")} />
+                      <IconButton icon="print" label="Imprimer les parametres" onClick={printSettingsOverview} />
                     </>
                   ) : null}
                   {adminSection === "analytics" ? (
-                    <button type="button" className="secondary-button" onClick={printAnalyticsOverview}>
-                      Imprimer
-                    </button>
+                    <IconButton icon="print" label="Imprimer la lecture business" onClick={printAnalyticsOverview} />
                   ) : null}
                   {adminSection === "applications" ? (
-                    <button
-                      type="button"
-                      className="secondary-button"
+                    <IconButton
+                      icon="print"
+                      label="Imprimer les candidatures"
                       onClick={() => printApplicationList("Candidatures en instance", adminApplications)}
-                    >
-                      Imprimer
-                    </button>
+                    />
                   ) : null}
                 </div>
               </div>
@@ -1053,17 +1081,16 @@ export function PortalDashboard({ role, initialData }) {
                             <td>{shipment.recipient_name}</td>
                             <td>
                               <div className="admin-table-actions">
-                                <button type="button" className="secondary-button" onClick={() => openShipmentView(shipment)}>Voir</button>
-                                <button type="button" className="secondary-button" onClick={() => openShipmentEditor(shipment)}>Modifier</button>
-                                <button type="button" className="secondary-button" onClick={() => printShipment(shipment)}>Imprimer</button>
-                                <button
-                                  type="button"
+                                <IconButton icon="view" label={`Voir le colis ${shipment.tracking_number}`} onClick={() => openShipmentView(shipment)} />
+                                <IconButton icon="edit" label={`Modifier le colis ${shipment.tracking_number}`} onClick={() => openShipmentEditor(shipment)} />
+                                <IconButton icon="print" label={`Imprimer le colis ${shipment.tracking_number}`} onClick={() => printShipment(shipment)} />
+                                <IconButton
+                                  icon="delete"
+                                  label={`Supprimer le colis ${shipment.tracking_number}`}
                                   className="ghost-button"
                                   disabled={busyAction === `delete-${shipment.id}`}
                                   onClick={() => handleDeleteShipment(shipment.id)}
-                                >
-                                  Supprimer
-                                </button>
+                                />
                               </div>
                             </td>
                           </tr>
@@ -1105,17 +1132,16 @@ export function PortalDashboard({ role, initialData }) {
                             <td>{user.status || "-"}</td>
                             <td>
                               <div className="admin-table-actions">
-                                <button type="button" className="secondary-button" onClick={() => openUserView(user)}>Voir</button>
-                                <button type="button" className="secondary-button" onClick={() => openEditUser(user)}>Modifier</button>
-                                <button type="button" className="secondary-button" onClick={() => printUser(user)}>Imprimer</button>
-                                <button
-                                  type="button"
+                                <IconButton icon="view" label={`Voir ${user.full_name}`} onClick={() => openUserView(user)} />
+                                <IconButton icon="edit" label={`Modifier ${user.full_name}`} onClick={() => openEditUser(user)} />
+                                <IconButton icon="print" label={`Imprimer ${user.full_name}`} onClick={() => printUser(user)} />
+                                <IconButton
+                                  icon="delete"
+                                  label={`Supprimer ${user.full_name}`}
                                   className="ghost-button"
                                   disabled={busyAction === `user-delete-${user.id}`}
                                   onClick={() => handleDeleteUser(user.id)}
-                                >
-                                  Supprimer
-                                </button>
+                                />
                               </div>
                             </td>
                           </tr>
@@ -1150,9 +1176,9 @@ export function PortalDashboard({ role, initialData }) {
                           <td>{item.note}</td>
                           <td>
                             <div className="admin-table-actions">
-                              <button type="button" className="secondary-button" onClick={() => openSettingsDialog("view")}>Voir</button>
-                              <button type="button" className="secondary-button" onClick={() => openSettingsDialog("edit")}>Modifier</button>
-                              <button type="button" className="secondary-button" onClick={printSettingsOverview}>Imprimer</button>
+                              <IconButton icon="view" label={`Voir ${item.title}`} onClick={() => openSettingsDialog("view")} />
+                              <IconButton icon="settings" label={`Modifier ${item.title}`} onClick={() => openSettingsDialog("edit")} />
+                              <IconButton icon="print" label={`Imprimer ${item.title}`} onClick={printSettingsOverview} />
                             </div>
                           </td>
                         </tr>
@@ -1261,8 +1287,8 @@ export function PortalDashboard({ role, initialData }) {
                             <td>{application.subtitle || "-"}</td>
                             <td>
                               <div className="admin-table-actions">
-                                <button type="button" className="secondary-button" onClick={() => openApplicationView(application)}>Voir</button>
-                                <button type="button" className="secondary-button" onClick={() => printApplication(application)}>Imprimer</button>
+                                <IconButton icon="view" label={`Voir ${application.title}`} onClick={() => openApplicationView(application)} />
+                                <IconButton icon="print" label={`Imprimer ${application.title}`} onClick={() => printApplication(application)} />
                               </div>
                             </td>
                           </tr>
@@ -1353,10 +1379,6 @@ export function PortalDashboard({ role, initialData }) {
       {role === "admin" ? (
         <section className="admin-top-menu glass-card">
           <div className="admin-top-menu-header">
-            <div>
-              <p className="eyebrow">Navigation admin</p>
-              <h2>Tables & rubriques</h2>
-            </div>
             <span className="role-badge">Recherche multi-critere + impression</span>
           </div>
           <div className="admin-sidebar">
