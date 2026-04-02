@@ -85,6 +85,15 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;")
 }
 
+function shipmentScanUrl(shipment) {
+  if (typeof window === "undefined") return ""
+  return `${window.location.origin}/delivery/scan?tracking=${encodeURIComponent(shipment.tracking_number)}`
+}
+
+function shipmentQrImageUrl(shipment) {
+  return `https://quickchart.io/qr?size=220&text=${encodeURIComponent(shipmentScanUrl(shipment))}`
+}
+
 function dashboardHeroTitle(role) {
   if (role === "client") return "Vos livraisons en un regard"
   if (role === "driver") return "Votre tournee live"
@@ -757,11 +766,19 @@ export function PortalDashboard({ role, initialData }) {
             .meta { margin-bottom: 20px; color: #43506d; }
             .card { border: 1px solid #d6a328; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
             .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            .print-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) 240px; gap: 16px; align-items: start; }
+            .qr-card { text-align: center; }
+            .qr-card img { width: 100%; max-width: 220px; height: auto; display: block; margin: 0 auto 10px; }
+            .qr-note { font-size: 12px; line-height: 1.5; color: #43506d; }
+            .qr-token { font-size: 11px; word-break: break-word; color: #6b7280; }
             .label { font-size: 12px; text-transform: uppercase; color: #6b7280; }
             .value { font-weight: 700; margin-top: 4px; }
             table { width: 100%; border-collapse: collapse; margin-top: 16px; }
             th, td { border: 1px solid #d7dbe6; padding: 10px; text-align: left; }
             th { background: #f7f9fc; }
+            @media print {
+              .print-layout { grid-template-columns: minmax(0, 1fr) 220px; }
+            }
           </style>
         </head>
         <body>
@@ -816,23 +833,34 @@ export function PortalDashboard({ role, initialData }) {
   }
 
   function printShipment(shipment) {
+    const scanUrl = shipmentScanUrl(shipment)
+    const qrImageUrl = shipmentQrImageUrl(shipment)
+
     printDocument(
       `Colis ${shipment.tracking_number}`,
       `
-        <div class="card">
-          <div class="grid">
-            <div><div class="label">Tracking</div><div class="value">${escapeHtml(shipment.tracking_number)}</div></div>
-            <div><div class="label">Statut</div><div class="value">${escapeHtml(statusLabels[shipment.status] ?? shipment.status)}</div></div>
-            <div><div class="label">Titre</div><div class="value">${escapeHtml(shipment.title)}</div></div>
-            <div><div class="label">Destinataire</div><div class="value">${escapeHtml(shipment.recipient_name)}</div></div>
-            <div><div class="label">Telephone</div><div class="value">${escapeHtml(shipment.recipient_phone || "-")}</div></div>
-            <div><div class="label">Adresse</div><div class="value">${escapeHtml(shipment.recipient_address || "-")}</div></div>
-            <div><div class="label">Partenaire</div><div class="value">${escapeHtml(shipment.partner_name || "-")}</div></div>
-            <div><div class="label">Livreur</div><div class="value">${escapeHtml(shipment.driver_name || "-")}</div></div>
-            <div><div class="label">Gouvernorat</div><div class="value">${escapeHtml(shipment.governorate || "-")}</div></div>
-            <div><div class="label">Ville</div><div class="value">${escapeHtml(shipment.city || "-")}</div></div>
-            <div><div class="label">Frais livraison</div><div class="value">${escapeHtml(`${money(shipment.delivery_fee)} DT`)}</div></div>
-            <div><div class="label">COD</div><div class="value">${escapeHtml(`${money(shipment.cod_amount)} DT`)}</div></div>
+        <div class="print-layout">
+          <div class="card">
+            <div class="grid">
+              <div><div class="label">Tracking</div><div class="value">${escapeHtml(shipment.tracking_number)}</div></div>
+              <div><div class="label">Statut</div><div class="value">${escapeHtml(statusLabels[shipment.status] ?? shipment.status)}</div></div>
+              <div><div class="label">Titre</div><div class="value">${escapeHtml(shipment.title)}</div></div>
+              <div><div class="label">Destinataire</div><div class="value">${escapeHtml(shipment.recipient_name)}</div></div>
+              <div><div class="label">Telephone</div><div class="value">${escapeHtml(shipment.recipient_phone || "-")}</div></div>
+              <div><div class="label">Adresse</div><div class="value">${escapeHtml(shipment.recipient_address || "-")}</div></div>
+              <div><div class="label">Partenaire</div><div class="value">${escapeHtml(shipment.partner_name || "-")}</div></div>
+              <div><div class="label">Livreur</div><div class="value">${escapeHtml(shipment.driver_name || "-")}</div></div>
+              <div><div class="label">Gouvernorat</div><div class="value">${escapeHtml(shipment.governorate || "-")}</div></div>
+              <div><div class="label">Ville</div><div class="value">${escapeHtml(shipment.city || "-")}</div></div>
+              <div><div class="label">Frais livraison</div><div class="value">${escapeHtml(`${money(shipment.delivery_fee)} DT`)}</div></div>
+              <div><div class="label">COD</div><div class="value">${escapeHtml(`${money(shipment.cod_amount)} DT`)}</div></div>
+            </div>
+          </div>
+          <div class="card qr-card">
+            <img src="${escapeHtml(qrImageUrl)}" alt="QR code colis ${escapeHtml(shipment.tracking_number)}" />
+            <div class="value">${escapeHtml(shipment.tracking_number)}</div>
+            <div class="qr-note">Scanner a la livraison pour ouvrir la page Sari3a de confirmation.</div>
+            <div class="qr-token">${escapeHtml(scanUrl)}</div>
           </div>
         </div>
       `

@@ -1047,6 +1047,100 @@ label {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.scan-shell {
+  width: min(780px, calc(100% - 1rem));
+  margin: 0 auto;
+  padding: 1rem 0 2rem;
+}
+
+.scan-card {
+  padding: 1.25rem;
+  border-radius: 28px;
+}
+
+.scan-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.scan-header-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.scan-header-copy h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.6rem, 4vw, 2.5rem);
+}
+
+.scan-header-copy p:last-child {
+  margin: 0;
+  color: rgba(247, 241, 228, 0.78);
+  line-height: 1.65;
+}
+
+.scan-status-row,
+.scan-login-actions,
+.scan-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.scan-status-row {
+  margin-top: 1.25rem;
+  justify-content: space-between;
+}
+
+.scan-status-pill {
+  pointer-events: none;
+  min-height: 42px;
+}
+
+.scan-grid {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.scan-grid article {
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(247, 241, 228, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.scan-grid article span {
+  color: rgba(247, 241, 228, 0.66);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.scan-grid article strong {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.scan-grid-wide {
+  grid-column: 1 / -1;
+}
+
+.scan-actions {
+  margin-top: 1rem;
+  justify-content: space-between;
+}
+
+.scan-session-note {
+  color: rgba(247, 241, 228, 0.72);
+}
+
 .application-switcher,
 .application-actions-row {
   margin-top: 1rem;
@@ -1188,6 +1282,7 @@ label {
   .finance-breakdown-grid,
   .admin-console,
   .applications-grid,
+  .scan-grid,
   .application-review-grid,
   .application-detail-grid {
     grid-template-columns: 1fr;
@@ -1323,6 +1418,11 @@ label {
     padding-bottom: 1.5rem;
   }
 
+  .scan-shell {
+    width: min(100%, calc(100% - 0.75rem));
+    padding-top: 0.75rem;
+  }
+
   .brand-mark {
     gap: 0.75rem;
   }
@@ -1386,6 +1486,8 @@ label {
   .application-actions-row,
   .shipment-actions,
   .admin-record-actions,
+  .scan-actions,
+  .scan-login-actions,
   .toolbar,
   .login-footer-links {
     flex-direction: column;
@@ -1397,6 +1499,8 @@ label {
   .application-actions-row > *,
   .shipment-actions > *,
   .admin-record-actions > *,
+  .scan-actions > *,
+  .scan-login-actions > *,
   .toolbar > * {
     width: 100%;
   }
