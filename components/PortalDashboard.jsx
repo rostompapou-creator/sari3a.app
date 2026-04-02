@@ -76,6 +76,15 @@ function applicationStatusClass(status) {
   return "application-status-pending"
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 function dashboardHeroTitle(role) {
   if (role === "client") return "Vos livraisons en un regard"
   if (role === "driver") return "Votre tournee live"
@@ -121,6 +130,9 @@ export function PortalDashboard({ role, initialData }) {
   const [selectedPartnerApplicationId, setSelectedPartnerApplicationId] = useState(initialData.partnerApplications[0]?.id ?? null)
   const [shipmentFilter, setShipmentFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [adminSection, setAdminSection] = useState("clients")
+  const [adminSearch, setAdminSearch] = useState("")
+  const [adminDialog, setAdminDialog] = useState(null)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const [busyAction, setBusyAction] = useState("")
@@ -185,6 +197,108 @@ export function PortalDashboard({ role, initialData }) {
 
   const activeApplications = applicationType === "driver" ? data.driverApplications : data.partnerApplications
   const selectedApplication = applicationType === "driver" ? selectedDriverApplication : selectedPartnerApplication
+  const managedUsers = [...data.clients, ...data.drivers, ...data.partners, ...data.admins]
+  const dashboardShipments = filteredShipments.length ? filteredShipments : data.shipments
+  const adminSections = [
+    { key: "clients", label: "Clients" },
+    { key: "partners", label: "Partenaires" },
+    { key: "drivers", label: "Livreurs" },
+    { key: "settings", label: "Parametres societe" },
+    { key: "applications", label: "Candidatures en instance" },
+    { key: "users", label: "Utilisateurs" }
+  ]
+  const pendingApplications = useMemo(
+    () => [
+      ...pendingDriverApplications.map((application) => ({
+        ...application,
+        applicationType: "driver",
+        title: application.full_name,
+        subtitle: application.vehicle || application.email
+      })),
+      ...pendingPartnerApplications.map((application) => ({
+        ...application,
+        applicationType: "partner",
+        title: application.business_name,
+        subtitle: application.contact_name || application.email
+      }))
+    ],
+    [pendingDriverApplications, pendingPartnerApplications]
+  )
+  const companySettingsRecords = useMemo(
+    () => [
+      {
+        id: "branding",
+        title: "Identite & accueil",
+        subtitle: `${settingsForm.brand_name} · ${settingsForm.tagline}`,
+        note: `${settingsForm.support_phone || "Sans telephone"} · ${settingsForm.support_email || "Sans email"}`
+      },
+      {
+        id: "statuses",
+        title: "Statuts colis",
+        subtitle: `${progressStatuses.length} standards + ${shipmentStatusesForm.length} additionnels`,
+        note: shipmentStatusesForm.length ? shipmentStatusesForm.map((status) => status.label).join(", ") : "Aucun statut additionnel"
+      },
+      {
+        id: "financials",
+        title: "KPI montants",
+        subtitle: `${money(data.financials?.totalAmount)} DT au total`,
+        note: `${partnerFinancialRows.length} partenaires · ${driverFinancialRows.length} livreurs`
+      }
+    ],
+    [settingsForm, progressStatuses.length, shipmentStatusesForm, data.financials?.totalAmount, partnerFinancialRows.length, driverFinancialRows.length]
+  )
+  const adminUserCollections = {
+    clients: data.clients,
+    partners: data.partners,
+    drivers: data.drivers,
+    users: managedUsers
+  }
+  const adminUsers = useMemo(() => {
+    const source = adminUserCollections[adminSection] ?? []
+    const query = adminSearch.trim().toLowerCase()
+    if (!query) return source
+    return source.filter((user) =>
+      [user.full_name, user.email, user.phone, user.governorate, user.address, user.vehicle, user.status, roleLabel(user.role)]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    )
+  }, [adminSearch, adminSection, data.clients, data.drivers, data.partners, managedUsers])
+  const adminApplications = useMemo(() => {
+    const query = adminSearch.trim().toLowerCase()
+    if (!query) return pendingApplications
+    return pendingApplications.filter((application) =>
+      [application.title, application.subtitle, application.email, application.phone, application.governorate, application.address, application.status]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    )
+  }, [adminSearch, pendingApplications])
+  const adminSettingsItems = useMemo(() => {
+    const query = adminSearch.trim().toLowerCase()
+    if (!query) return companySettingsRecords
+    return companySettingsRecords.filter((item) =>
+      [item.title, item.subtitle, item.note]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    )
+  }, [adminSearch, companySettingsRecords])
+  const viewedUser =
+    adminDialog?.type === "user-view"
+      ? managedUsers.find((user) => user.id === adminDialog.userId) ?? null
+      : null
+  const viewedApplication =
+    adminDialog?.type === "application-view"
+      ? (() => {
+          const source = adminDialog.applicationType === "driver" ? data.driverApplications : data.partnerApplications
+          const found = source.find((application) => application.id === adminDialog.applicationId)
+          return found ? { ...found, applicationType: adminDialog.applicationType } : null
+        })()
+      : null
 
   async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -326,6 +440,7 @@ export function PortalDashboard({ role, initialData }) {
       }
       await refreshDashboard()
       resetUserForm()
+      closeAdminDialog()
     } catch (userError) {
       setError(userError.message)
     } finally {
@@ -359,6 +474,7 @@ export function PortalDashboard({ role, initialData }) {
       setShipmentStatusesForm(updated.shipment_statuses ?? [])
       await refreshDashboard()
       setMessage("Parametres et statuts colis mis a jour.")
+      if (adminDialog?.type === "settings" && adminDialog.mode === "edit") closeAdminDialog()
     } catch (settingsError) {
       setError(settingsError.message)
     } finally {
@@ -434,10 +550,12 @@ export function PortalDashboard({ role, initialData }) {
       if (type === "driver" && status === "approved" && result?.whatsappUrl) {
         window.open(result.whatsappUrl, "_blank", "noopener,noreferrer")
         setMessage("Candidature livreur validee et message WhatsApp prepare.")
+        if (adminDialog?.type === "application-view") closeAdminDialog()
         return
       }
 
       setMessage(`Candidature ${type === "driver" ? "livreur" : "partenaire"} mise a jour.`)
+      if (adminDialog?.type === "application-view") closeAdminDialog()
     } catch (applicationError) {
       setError(applicationError.message)
     } finally {
@@ -490,8 +608,205 @@ export function PortalDashboard({ role, initialData }) {
     })
   }
 
-  const managedUsers = [...data.clients, ...data.drivers, ...data.partners, ...data.admins]
-  const dashboardShipments = filteredShipments.length ? filteredShipments : data.shipments
+  function openUserForm(roleValue = "client") {
+    resetUserForm()
+    setUserForm((current) => ({
+      ...current,
+      role: roleValue
+    }))
+    setAdminDialog({ type: "user-form" })
+  }
+
+  function openEditUser(user) {
+    loadUserForEdit(user)
+    setAdminDialog({ type: "user-form" })
+  }
+
+  function openUserView(user) {
+    setAdminDialog({ type: "user-view", userId: user.id })
+  }
+
+  function openApplicationView(application) {
+    if (application.applicationType === "driver") setSelectedDriverApplicationId(application.id)
+    if (application.applicationType === "partner") setSelectedPartnerApplicationId(application.id)
+    setAdminDialog({ type: "application-view", applicationType: application.applicationType, applicationId: application.id })
+  }
+
+  function openSettingsDialog(mode = "view") {
+    setAdminDialog({ type: "settings", mode })
+  }
+
+  function closeAdminDialog() {
+    setAdminDialog(null)
+  }
+
+  function printDocument(title, html) {
+    const printWindow = window.open("", "_blank", "width=960,height=720")
+    if (!printWindow) {
+      setError("Autorisez les popups pour imprimer depuis l'admin.")
+      return
+    }
+
+    printWindow.document.write(`<!DOCTYPE html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(title)}</title>
+          <style>
+            body { font-family: Georgia, serif; padding: 24px; color: #081a44; }
+            h1, h2 { margin: 0 0 16px; }
+            .meta { margin-bottom: 20px; color: #43506d; }
+            .card { border: 1px solid #d6a328; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+            .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            .label { font-size: 12px; text-transform: uppercase; color: #6b7280; }
+            .value { font-weight: 700; margin-top: 4px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #d7dbe6; padding: 10px; text-align: left; }
+            th { background: #f7f9fc; }
+          </style>
+        </head>
+        <body>
+          <h1>${escapeHtml(title)}</h1>
+          <div class="meta">Sari3a Delivery · ${escapeHtml(new Date().toLocaleString("fr-FR"))}</div>
+          ${html}
+        </body>
+      </html>`)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
+
+  function printUser(user) {
+    printDocument(
+      `Fiche ${roleLabel(user.role)} - ${user.full_name}`,
+      `
+        <div class="card">
+          <div class="grid">
+            <div><div class="label">Nom</div><div class="value">${escapeHtml(user.full_name)}</div></div>
+            <div><div class="label">Role</div><div class="value">${escapeHtml(roleLabel(user.role))}</div></div>
+            <div><div class="label">Email</div><div class="value">${escapeHtml(user.email)}</div></div>
+            <div><div class="label">Telephone</div><div class="value">${escapeHtml(user.phone || "-")}</div></div>
+            <div><div class="label">Gouvernorat</div><div class="value">${escapeHtml(user.governorate || "-")}</div></div>
+            <div><div class="label">Statut</div><div class="value">${escapeHtml(user.status || "-")}</div></div>
+            <div><div class="label">Adresse</div><div class="value">${escapeHtml(user.address || "-")}</div></div>
+            <div><div class="label">Vehicule</div><div class="value">${escapeHtml(user.vehicle || "-")}</div></div>
+          </div>
+        </div>
+      `
+    )
+  }
+
+  function printApplication(application) {
+    printDocument(
+      `Candidature ${application.applicationType === "driver" ? "Livreur" : "Partenaire"} - ${application.title}`,
+      `
+        <div class="card">
+          <div class="grid">
+            <div><div class="label">Nom</div><div class="value">${escapeHtml(application.title)}</div></div>
+            <div><div class="label">Type</div><div class="value">${escapeHtml(application.applicationType === "driver" ? "Livreur" : "Partenaire")}</div></div>
+            <div><div class="label">Email</div><div class="value">${escapeHtml(application.email)}</div></div>
+            <div><div class="label">Telephone</div><div class="value">${escapeHtml(application.phone || "-")}</div></div>
+            <div><div class="label">Gouvernorat</div><div class="value">${escapeHtml(application.governorate || "-")}</div></div>
+            <div><div class="label">Statut</div><div class="value">${escapeHtml(applicationStatusLabel(application.status))}</div></div>
+            <div><div class="label">Adresse</div><div class="value">${escapeHtml(application.address || "-")}</div></div>
+            <div><div class="label">Details</div><div class="value">${escapeHtml(application.subtitle || "-")}</div></div>
+          </div>
+        </div>
+      `
+    )
+  }
+
+  function printSettingsOverview() {
+    printDocument(
+      "Parametres de la societe",
+      `
+        <div class="card">
+          <div class="grid">
+            <div><div class="label">Marque</div><div class="value">${escapeHtml(settingsForm.brand_name)}</div></div>
+            <div><div class="label">Tagline</div><div class="value">${escapeHtml(settingsForm.tagline)}</div></div>
+            <div><div class="label">Telephone</div><div class="value">${escapeHtml(settingsForm.support_phone || "-")}</div></div>
+            <div><div class="label">Email</div><div class="value">${escapeHtml(settingsForm.support_email || "-")}</div></div>
+            <div><div class="label">Hero</div><div class="value">${escapeHtml(settingsForm.hero_title || "-")}</div></div>
+            <div><div class="label">Statuts colis</div><div class="value">${escapeHtml(shipmentStatusesForm.map((status) => status.label).join(", ") || "Aucun statut additionnel")}</div></div>
+            <div><div class="label">Total livraisons</div><div class="value">${escapeHtml(`${money(data.financials?.totalAmount)} DT`)}</div></div>
+            <div><div class="label">Candidatures en attente</div><div class="value">${escapeHtml(`${pendingApplications.length}`)}</div></div>
+          </div>
+        </div>
+      `
+    )
+  }
+
+  function printUserList(title, users) {
+    printDocument(
+      title,
+      `
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Role</th>
+              <th>Email</th>
+              <th>Telephone</th>
+              <th>Gouvernorat</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users
+              .map(
+                (user) => `
+                  <tr>
+                    <td>${escapeHtml(user.full_name)}</td>
+                    <td>${escapeHtml(roleLabel(user.role))}</td>
+                    <td>${escapeHtml(user.email)}</td>
+                    <td>${escapeHtml(user.phone || "-")}</td>
+                    <td>${escapeHtml(user.governorate || "-")}</td>
+                    <td>${escapeHtml(user.status || "-")}</td>
+                  </tr>
+                `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      `
+    )
+  }
+
+  function printApplicationList(title, applications) {
+    printDocument(
+      title,
+      `
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Type</th>
+              <th>Contact</th>
+              <th>Telephone</th>
+              <th>Gouvernorat</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${applications
+              .map(
+                (application) => `
+                  <tr>
+                    <td>${escapeHtml(application.title)}</td>
+                    <td>${escapeHtml(application.applicationType === "driver" ? "Livreur" : "Partenaire")}</td>
+                    <td>${escapeHtml(application.email)}</td>
+                    <td>${escapeHtml(application.phone || "-")}</td>
+                    <td>${escapeHtml(application.governorate || "-")}</td>
+                    <td>${escapeHtml(applicationStatusLabel(application.status))}</td>
+                  </tr>
+                `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      `
+    )
+  }
 
   return (
     <main className="dashboard-shell">
@@ -881,6 +1196,202 @@ export function PortalDashboard({ role, initialData }) {
           </div>
 
           {role === "admin" ? (
+            <div className="panel glass-card">
+              <div className="panel-header">
+                <div>
+                  <p className="eyebrow">Admin</p>
+                  <h2>Back-office societe</h2>
+                </div>
+                <span className="role-badge">Recherche multi-critere + impression</span>
+              </div>
+
+              <div className="admin-console">
+                <aside className="admin-sidebar">
+                  {adminSections.map((section) => (
+                    <button
+                      key={section.key}
+                      type="button"
+                      className={`admin-nav-button ${adminSection === section.key ? "is-active" : ""}`}
+                      onClick={() => {
+                        setAdminSection(section.key)
+                        setAdminSearch("")
+                      }}
+                    >
+                      {section.label}
+                    </button>
+                  ))}
+                </aside>
+
+                <div className="admin-content">
+                  <div className="admin-toolbar">
+                    <div>
+                      <p className="eyebrow">Liste active</p>
+                      <h3>{adminSections.find((section) => section.key === adminSection)?.label}</h3>
+                      <span>La liste reste visible. Les actions ouvrent une fiche ou un formulaire dedie.</span>
+                    </div>
+                    <div className="admin-toolbar-actions">
+                      <input
+                        className="admin-search-input"
+                        value={adminSearch}
+                        placeholder="Recherche multi-critere : nom, email, telephone, gouvernorat, statut..."
+                        onChange={(event) => setAdminSearch(event.target.value)}
+                      />
+                      {["clients", "partners", "drivers", "users"].includes(adminSection) ? (
+                        <>
+                          <button
+                            type="button"
+                            className="primary-button"
+                            onClick={() =>
+                              openUserForm(
+                                adminSection === "clients"
+                                  ? "client"
+                                  : adminSection === "partners"
+                                    ? "partner"
+                                    : adminSection === "drivers"
+                                      ? "driver"
+                                      : "admin"
+                              )
+                            }
+                          >
+                            Ajouter
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() =>
+                              printUserList(
+                                `Liste ${adminSections.find((section) => section.key === adminSection)?.label}`,
+                                adminUsers
+                              )
+                            }
+                          >
+                            Imprimer
+                          </button>
+                        </>
+                      ) : null}
+                      {adminSection === "settings" ? (
+                        <>
+                          <button type="button" className="primary-button" onClick={() => openSettingsDialog("edit")}>
+                            Modifier
+                          </button>
+                          <button type="button" className="secondary-button" onClick={printSettingsOverview}>
+                            Imprimer
+                          </button>
+                        </>
+                      ) : null}
+                      {adminSection === "applications" ? (
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => printApplicationList("Candidatures en instance", adminApplications)}
+                        >
+                          Imprimer
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {["clients", "partners", "drivers", "users"].includes(adminSection) ? (
+                    <div className="admin-record-list">
+                      {adminUsers.length ? adminUsers.map((user) => (
+                        <article key={user.id} className="mini-card admin-record-card">
+                          <div className="admin-record-main">
+                            <div>
+                              <strong>{user.full_name}</strong>
+                              <p>{roleLabel(user.role)} · {user.email}</p>
+                            </div>
+                            <span className="admin-record-meta">{user.governorate || "Tunisie"} · {user.phone || "Sans telephone"}</span>
+                          </div>
+                          <div className="admin-record-actions">
+                            <button type="button" className="secondary-button" onClick={() => openUserView(user)}>
+                              Voir
+                            </button>
+                            <button type="button" className="secondary-button" onClick={() => openEditUser(user)}>
+                              Modifier
+                            </button>
+                            <button type="button" className="secondary-button" onClick={() => printUser(user)}>
+                              Imprimer
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost-button"
+                              disabled={busyAction === `user-delete-${user.id}`}
+                              onClick={() => handleDeleteUser(user.id)}
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                        </article>
+                      )) : (
+                        <div className="mini-card">
+                          <strong>Aucun resultat</strong>
+                          <span>Essayez un autre mot-cle ou ajoutez un nouvel enregistrement.</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {adminSection === "settings" ? (
+                    <div className="admin-record-list">
+                      {adminSettingsItems.map((item) => (
+                        <article key={item.id} className="mini-card admin-record-card">
+                          <div className="admin-record-main">
+                            <div>
+                              <strong>{item.title}</strong>
+                              <p>{item.subtitle}</p>
+                            </div>
+                            <span className="admin-record-meta">{item.note}</span>
+                          </div>
+                          <div className="admin-record-actions">
+                            <button type="button" className="secondary-button" onClick={() => openSettingsDialog("view")}>
+                              Voir
+                            </button>
+                            <button type="button" className="secondary-button" onClick={() => openSettingsDialog("edit")}>
+                              Modifier
+                            </button>
+                            <button type="button" className="secondary-button" onClick={printSettingsOverview}>
+                              Imprimer
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {adminSection === "applications" ? (
+                    <div className="admin-record-list">
+                      {adminApplications.length ? adminApplications.map((application) => (
+                        <article key={`${application.applicationType}-${application.id}`} className="mini-card admin-record-card">
+                          <div className="admin-record-main">
+                            <div>
+                              <strong>{application.title}</strong>
+                              <p>{application.applicationType === "driver" ? "Livreur" : "Partenaire"} · {application.email}</p>
+                            </div>
+                            <span className="admin-record-meta">{application.governorate} · {application.subtitle || "Sans detail"}</span>
+                          </div>
+                          <div className="admin-record-actions">
+                            <button type="button" className="secondary-button" onClick={() => openApplicationView(application)}>
+                              Voir
+                            </button>
+                            <button type="button" className="secondary-button" onClick={() => printApplication(application)}>
+                              Imprimer
+                            </button>
+                          </div>
+                        </article>
+                      )) : (
+                        <div className="mini-card">
+                          <strong>Aucune candidature en instance</strong>
+                          <span>Les candidatures en attente apparaitront ici.</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {role === "admin" && false ? (
             <div className="panel glass-card">
               <div className="panel-header">
                 <div>
@@ -1387,6 +1898,349 @@ export function PortalDashboard({ role, initialData }) {
             </div>
           )}
         </section>
+      ) : null}
+
+      {adminDialog?.type === "user-form" ? (
+        <div className="modal-backdrop" onClick={closeAdminDialog}>
+          <div className="modal-card glass-card" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Utilisateur</p>
+                <h2>{editingUserId ? "Modifier la fiche" : "Nouveau formulaire"}</h2>
+              </div>
+              <button type="button" className="secondary-button" onClick={closeAdminDialog}>
+                Fermer
+              </button>
+            </div>
+
+            <form className="stack-form dense" onSubmit={handleUserSubmit}>
+              <div className="grid-two">
+                <label>
+                  Role
+                  <select value={userForm.role} onChange={(event) => setUserForm((current) => ({ ...current, role: event.target.value }))}>
+                    <option value="client">Client</option>
+                    <option value="driver">Livreur</option>
+                    <option value="partner">Partenaire</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </label>
+                <label>
+                  Nom complet
+                  <input value={userForm.full_name} onChange={(event) => setUserForm((current) => ({ ...current, full_name: event.target.value }))} required />
+                </label>
+              </div>
+              <div className="grid-two">
+                <label>
+                  Email
+                  <input type="email" value={userForm.email} onChange={(event) => setUserForm((current) => ({ ...current, email: event.target.value }))} required />
+                </label>
+                <label>
+                  Telephone
+                  <input value={userForm.phone} onChange={(event) => setUserForm((current) => ({ ...current, phone: event.target.value }))} />
+                </label>
+              </div>
+              <div className="grid-two">
+                <label>
+                  Gouvernorat
+                  <select value={userForm.governorate} onChange={(event) => setUserForm((current) => ({ ...current, governorate: event.target.value }))}>
+                    {data.governorates.map((governorate) => (
+                      <option key={governorate} value={governorate}>{governorate}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Statut
+                  <select value={userForm.status} onChange={(event) => setUserForm((current) => ({ ...current, status: event.target.value }))}>
+                    <option value="active">Actif</option>
+                    <option value="paused">Pause</option>
+                  </select>
+                </label>
+              </div>
+              <div className="grid-two">
+                <label>
+                  Adresse
+                  <input value={userForm.address} onChange={(event) => setUserForm((current) => ({ ...current, address: event.target.value }))} />
+                </label>
+                <label>
+                  Vehicule
+                  <input value={userForm.vehicle} onChange={(event) => setUserForm((current) => ({ ...current, vehicle: event.target.value }))} />
+                </label>
+              </div>
+              <div className="grid-three">
+                <label>
+                  Note
+                  <input type="number" step="0.1" value={userForm.rating} onChange={(event) => setUserForm((current) => ({ ...current, rating: event.target.value }))} />
+                </label>
+                <label>
+                  Latitude
+                  <input value={userForm.current_lat} onChange={(event) => setUserForm((current) => ({ ...current, current_lat: event.target.value }))} />
+                </label>
+                <label>
+                  Longitude
+                  <input value={userForm.current_lng} onChange={(event) => setUserForm((current) => ({ ...current, current_lng: event.target.value }))} />
+                </label>
+              </div>
+              <label>
+                Mot de passe
+                <input value={userForm.password} onChange={(event) => setUserForm((current) => ({ ...current, password: event.target.value }))} placeholder={editingUserId ? "Laisser vide pour conserver" : "demo123"} />
+              </label>
+              <div className="shipment-actions">
+                <button type="submit" className="primary-button" disabled={busyAction === "user"}>
+                  {busyAction === "user" ? "Enregistrement..." : editingUserId ? "Mettre a jour" : "Creer"}
+                </button>
+                <button type="button" className="secondary-button" onClick={() => { resetUserForm(); closeAdminDialog() }}>
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {adminDialog?.type === "user-view" && viewedUser ? (
+        <div className="modal-backdrop" onClick={closeAdminDialog}>
+          <div className="modal-card glass-card" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Consultation</p>
+                <h2>{viewedUser.full_name}</h2>
+              </div>
+              <button type="button" className="secondary-button" onClick={closeAdminDialog}>
+                Fermer
+              </button>
+            </div>
+            <div className="application-detail-grid">
+              <article><span>Role</span><strong>{roleLabel(viewedUser.role)}</strong></article>
+              <article><span>Email</span><strong>{viewedUser.email}</strong></article>
+              <article><span>Telephone</span><strong>{viewedUser.phone || "-"}</strong></article>
+              <article><span>Gouvernorat</span><strong>{viewedUser.governorate || "-"}</strong></article>
+              <article><span>Adresse</span><strong>{viewedUser.address || "-"}</strong></article>
+              <article><span>Vehicule</span><strong>{viewedUser.vehicle || "-"}</strong></article>
+              <article><span>Statut</span><strong>{viewedUser.status || "-"}</strong></article>
+              <article><span>Note</span><strong>{Number(viewedUser.rating ?? 0).toFixed(1)}</strong></article>
+            </div>
+            <div className="shipment-actions">
+              <button type="button" className="primary-button" onClick={() => { closeAdminDialog(); openEditUser(viewedUser) }}>
+                Modifier
+              </button>
+              <button type="button" className="secondary-button" onClick={() => printUser(viewedUser)}>
+                Imprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {adminDialog?.type === "settings" ? (
+        <div className="modal-backdrop" onClick={closeAdminDialog}>
+          <div className="modal-card glass-card" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Parametres de la societe</p>
+                <h2>{adminDialog.mode === "edit" ? "Modifier les parametres" : "Consulter les parametres"}</h2>
+              </div>
+              <button type="button" className="secondary-button" onClick={closeAdminDialog}>
+                Fermer
+              </button>
+            </div>
+
+            {adminDialog.mode === "edit" ? (
+              <form className="stack-form dense" onSubmit={handleSettingsSubmit}>
+                <div className="grid-two">
+                  <label>
+                    Nom de marque
+                    <input value={settingsForm.brand_name} onChange={(event) => setSettingsForm((current) => ({ ...current, brand_name: event.target.value }))} />
+                  </label>
+                  <label>
+                    Tagline
+                    <input value={settingsForm.tagline} onChange={(event) => setSettingsForm((current) => ({ ...current, tagline: event.target.value }))} />
+                  </label>
+                </div>
+                <div className="grid-two">
+                  <label>
+                    Telephone support
+                    <input value={settingsForm.support_phone} onChange={(event) => setSettingsForm((current) => ({ ...current, support_phone: event.target.value }))} />
+                  </label>
+                  <label>
+                    Email support
+                    <input value={settingsForm.support_email} onChange={(event) => setSettingsForm((current) => ({ ...current, support_email: event.target.value }))} />
+                  </label>
+                </div>
+                <label>
+                  Titre hero
+                  <input value={settingsForm.hero_title} onChange={(event) => setSettingsForm((current) => ({ ...current, hero_title: event.target.value }))} />
+                </label>
+                <label>
+                  Description hero
+                  <textarea rows="3" value={settingsForm.hero_description} onChange={(event) => setSettingsForm((current) => ({ ...current, hero_description: event.target.value }))} />
+                </label>
+                <div className="grid-two">
+                  <label>
+                    Couleur primaire
+                    <input value={settingsForm.primary_color} onChange={(event) => setSettingsForm((current) => ({ ...current, primary_color: event.target.value }))} />
+                  </label>
+                  <label>
+                    Couleur secondaire
+                    <input value={settingsForm.secondary_color} onChange={(event) => setSettingsForm((current) => ({ ...current, secondary_color: event.target.value }))} />
+                  </label>
+                </div>
+                <div className="shipment-status-config">
+                  <div className="mini-card">
+                    <strong>Parcours standard</strong>
+                    <div className="status-pill-list">
+                      {progressStatuses.map((status) => (
+                        <span key={status.key} className={`status-pill ${statusClass(status.key)}`}>
+                          {status.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mini-card">
+                    <strong>Statuts additionnels</strong>
+                    <div className="shipment-status-editor">
+                      {shipmentStatusesForm.length ? shipmentStatusesForm.map((status, index) => (
+                        <div key={`${status.key}-${index}`} className="shipment-status-row">
+                          <input value={status.label} onChange={(event) => handleShipmentStatusLabelChange(index, event.target.value)} />
+                          <span className="shipment-status-key">{slugifyStatusLabel(status.label) || "cle_auto"}</span>
+                          <button type="button" className="ghost-button" onClick={() => handleRemoveShipmentStatus(index)}>
+                            Supprimer
+                          </button>
+                        </div>
+                      )) : <span>Aucun statut additionnel configure.</span>}
+                    </div>
+                    <div className="shipment-status-add">
+                      <input value={newShipmentStatusLabel} placeholder="Ex: Refuse" onChange={(event) => setNewShipmentStatusLabel(event.target.value)} />
+                      <button type="button" className="secondary-button" onClick={handleAddShipmentStatus}>Ajouter</button>
+                    </div>
+                  </div>
+                </div>
+                <div className="shipment-actions">
+                  <button type="submit" className="primary-button" disabled={busyAction === "settings"}>
+                    {busyAction === "settings" ? "Mise a jour..." : "Enregistrer"}
+                  </button>
+                  <button type="button" className="secondary-button" onClick={printSettingsOverview}>
+                    Imprimer
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div className="admin-record-list">
+                  {companySettingsRecords.map((item) => (
+                    <article key={item.id} className="mini-card admin-record-card">
+                      <div className="admin-record-main">
+                        <div>
+                          <strong>{item.title}</strong>
+                          <p>{item.subtitle}</p>
+                        </div>
+                        <span className="admin-record-meta">{item.note}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <div className="analytics-grid finance-kpi-grid">
+                  <article className="mini-card">
+                    <strong>{money(data.financials?.totalAmount)} DT</strong>
+                    <span>Total des livraisons</span>
+                  </article>
+                  <article className="mini-card">
+                    <strong>{partnerFinancialRows.length}</strong>
+                    <span>Partenaires comptabilises</span>
+                  </article>
+                  <article className="mini-card">
+                    <strong>{driverFinancialRows.length}</strong>
+                    <span>Livreurs comptabilises</span>
+                  </article>
+                </div>
+                <div className="shipment-actions">
+                  <button type="button" className="primary-button" onClick={() => openSettingsDialog("edit")}>
+                    Modifier
+                  </button>
+                  <button type="button" className="secondary-button" onClick={printSettingsOverview}>
+                    Imprimer
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {adminDialog?.type === "application-view" && viewedApplication ? (
+        <div className="modal-backdrop" onClick={closeAdminDialog}>
+          <div className="modal-card glass-card" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Candidature</p>
+                <h2>{viewedApplication.applicationType === "driver" ? viewedApplication.full_name : viewedApplication.business_name}</h2>
+              </div>
+              <button type="button" className="secondary-button" onClick={closeAdminDialog}>
+                Fermer
+              </button>
+            </div>
+
+            <div className="application-detail-grid">
+              {viewedApplication.applicationType === "driver" ? (
+                <>
+                  <article><span>Nom complet</span><strong>{viewedApplication.full_name}</strong></article>
+                  <article><span>Email</span><strong>{viewedApplication.email}</strong></article>
+                  <article><span>Telephone</span><strong>{viewedApplication.phone}</strong></article>
+                  <article><span>Gouvernorat</span><strong>{viewedApplication.governorate}</strong></article>
+                  <article><span>Adresse</span><strong>{viewedApplication.address || "-"}</strong></article>
+                  <article><span>Vehicule</span><strong>{viewedApplication.vehicle}</strong></article>
+                  <article><span>Experience</span><strong>{viewedApplication.experience || "-"}</strong></article>
+                  <article className="application-detail-wide"><span>Notes</span><strong>{viewedApplication.notes || "-"}</strong></article>
+                </>
+              ) : (
+                <>
+                  <article><span>Entreprise</span><strong>{viewedApplication.business_name}</strong></article>
+                  <article><span>Contact</span><strong>{viewedApplication.contact_name}</strong></article>
+                  <article><span>Email</span><strong>{viewedApplication.email}</strong></article>
+                  <article><span>Telephone</span><strong>{viewedApplication.phone}</strong></article>
+                  <article><span>Gouvernorat</span><strong>{viewedApplication.governorate}</strong></article>
+                  <article><span>Adresse</span><strong>{viewedApplication.address || "-"}</strong></article>
+                  <article><span>Activite</span><strong>{viewedApplication.activity || "-"}</strong></article>
+                  <article><span>Colis / jour</span><strong>{viewedApplication.average_shipments}</strong></article>
+                  <article className="application-detail-wide"><span>Notes</span><strong>{viewedApplication.notes || "-"}</strong></article>
+                </>
+              )}
+            </div>
+
+            <div className="application-actions-row">
+              <button
+                type="button"
+                className="primary-button"
+                disabled={busyAction === `application-${viewedApplication.applicationType}-${viewedApplication.id}-approved`}
+                onClick={() => handleApplicationDecision(viewedApplication.applicationType, viewedApplication.id, "approved")}
+              >
+                Valider
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={busyAction === `application-${viewedApplication.applicationType}-${viewedApplication.id}-pending`}
+                onClick={() => handleApplicationDecision(viewedApplication.applicationType, viewedApplication.id, "pending")}
+              >
+                Mettre en attente
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={busyAction === `application-${viewedApplication.applicationType}-${viewedApplication.id}-rejected`}
+                onClick={() => handleApplicationDecision(viewedApplication.applicationType, viewedApplication.id, "rejected")}
+              >
+                Refuser
+              </button>
+              <button type="button" className="secondary-button" onClick={() => printApplication({
+                ...viewedApplication,
+                title: viewedApplication.applicationType === "driver" ? viewedApplication.full_name : viewedApplication.business_name,
+                subtitle: viewedApplication.applicationType === "driver" ? viewedApplication.vehicle : viewedApplication.contact_name
+              })}>
+                Imprimer
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </main>
   )
