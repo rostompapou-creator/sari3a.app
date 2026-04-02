@@ -51,6 +51,7 @@ Variables importantes:
 - `LIBSQL_AUTH_TOKEN`
 - `SARI3A_SESSION_SECRET`
 - `SARI3A_ENABLE_DEMO_DATA=false`
+- `SARI3A_FORCE_ADMIN_SYNC=false`
 - `SARI3A_INITIAL_ADMIN_EMAIL`
 - `SARI3A_INITIAL_ADMIN_PASSWORD`
 - `SARI3A_DRIVER_ONBOARDING_PASSWORD`
@@ -63,6 +64,7 @@ LIBSQL_URL=libsql://your-db-name.turso.io
 LIBSQL_AUTH_TOKEN=your-token
 SARI3A_SESSION_SECRET=un-secret-fort
 SARI3A_ENABLE_DEMO_DATA=false
+SARI3A_FORCE_ADMIN_SYNC=false
 SARI3A_INITIAL_ADMIN_EMAIL=admin@votre-domaine.tn
 SARI3A_INITIAL_ADMIN_PASSWORD=un-mot-de-passe-fort
 SARI3A_DRIVER_ONBOARDING_PASSWORD=un-mot-de-passe-livreur
@@ -99,7 +101,12 @@ Seul l'admin initial sera cree a partir des variables d'environnement.
 5. Definir l'admin initial:
    - `SARI3A_INITIAL_ADMIN_EMAIL`
    - `SARI3A_INITIAL_ADMIN_PASSWORD`
-6. Deployer le projet sur Vercel.
+6. Si un ancien admin existe deja dans la base distante et que vous voulez l'ecraser au prochain deploiement:
+   - mettre `SARI3A_FORCE_ADMIN_SYNC=true`
+   - redeployer
+   - tester la connexion admin
+   - remettre ensuite `SARI3A_FORCE_ADMIN_SYNC=false`
+7. Deployer le projet sur Vercel.
 
 ### Resultat
 

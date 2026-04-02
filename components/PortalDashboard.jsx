@@ -200,6 +200,7 @@ export function PortalDashboard({ role, initialData }) {
   const managedUsers = [...data.clients, ...data.drivers, ...data.partners, ...data.admins]
   const dashboardShipments = filteredShipments.length ? filteredShipments : data.shipments
   const adminSections = [
+    { key: "shipments", label: "Colis" },
     { key: "clients", label: "Clients" },
     { key: "partners", label: "Partenaires" },
     { key: "drivers", label: "Livreurs" },
@@ -276,6 +277,28 @@ export function PortalDashboard({ role, initialData }) {
         .includes(query)
     )
   }, [adminSearch, pendingApplications])
+  const adminShipments = useMemo(() => {
+    const query = adminSearch.trim().toLowerCase()
+    if (!query) return data.shipments
+    return data.shipments.filter((shipment) =>
+      [
+        shipment.tracking_number,
+        shipment.title,
+        shipment.recipient_name,
+        shipment.recipient_phone,
+        shipment.recipient_address,
+        shipment.governorate,
+        shipment.city,
+        shipment.partner_name,
+        shipment.driver_name,
+        statusLabels[shipment.status] ?? shipment.status
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    )
+  }, [adminSearch, data.shipments, statusLabels])
   const adminSettingsItems = useMemo(() => {
     const query = adminSearch.trim().toLowerCase()
     if (!query) return companySettingsRecords
@@ -290,6 +313,10 @@ export function PortalDashboard({ role, initialData }) {
   const viewedUser =
     adminDialog?.type === "user-view"
       ? managedUsers.find((user) => user.id === adminDialog.userId) ?? null
+      : null
+  const viewedShipment =
+    adminDialog?.type === "shipment-view"
+      ? data.shipments.find((shipment) => shipment.id === adminDialog.shipmentId) ?? null
       : null
   const viewedApplication =
     adminDialog?.type === "application-view"
@@ -636,6 +663,24 @@ export function PortalDashboard({ role, initialData }) {
     setAdminDialog({ type: "settings", mode })
   }
 
+  function jumpToShipmentWorkspace() {
+    const section = document.getElementById("shipment-workspace")
+    section?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  function openShipmentEditor(shipment = null) {
+    if (shipment) loadShipmentForEdit(shipment)
+    else resetShipmentForm()
+    setSelectedShipmentId(shipment?.id ?? selectedShipmentId)
+    jumpToShipmentWorkspace()
+    setMessage(shipment ? "Le formulaire colis est charge pour modification." : "Le formulaire colis est pret pour un nouvel ajout.")
+  }
+
+  function openShipmentView(shipment) {
+    setSelectedShipmentId(shipment.id)
+    setAdminDialog({ type: "shipment-view", shipmentId: shipment.id })
+  }
+
   function closeAdminDialog() {
     setAdminDialog(null)
   }
@@ -710,6 +755,30 @@ export function PortalDashboard({ role, initialData }) {
             <div><div class="label">Statut</div><div class="value">${escapeHtml(applicationStatusLabel(application.status))}</div></div>
             <div><div class="label">Adresse</div><div class="value">${escapeHtml(application.address || "-")}</div></div>
             <div><div class="label">Details</div><div class="value">${escapeHtml(application.subtitle || "-")}</div></div>
+          </div>
+        </div>
+      `
+    )
+  }
+
+  function printShipment(shipment) {
+    printDocument(
+      `Colis ${shipment.tracking_number}`,
+      `
+        <div class="card">
+          <div class="grid">
+            <div><div class="label">Tracking</div><div class="value">${escapeHtml(shipment.tracking_number)}</div></div>
+            <div><div class="label">Statut</div><div class="value">${escapeHtml(statusLabels[shipment.status] ?? shipment.status)}</div></div>
+            <div><div class="label">Titre</div><div class="value">${escapeHtml(shipment.title)}</div></div>
+            <div><div class="label">Destinataire</div><div class="value">${escapeHtml(shipment.recipient_name)}</div></div>
+            <div><div class="label">Telephone</div><div class="value">${escapeHtml(shipment.recipient_phone || "-")}</div></div>
+            <div><div class="label">Adresse</div><div class="value">${escapeHtml(shipment.recipient_address || "-")}</div></div>
+            <div><div class="label">Partenaire</div><div class="value">${escapeHtml(shipment.partner_name || "-")}</div></div>
+            <div><div class="label">Livreur</div><div class="value">${escapeHtml(shipment.driver_name || "-")}</div></div>
+            <div><div class="label">Gouvernorat</div><div class="value">${escapeHtml(shipment.governorate || "-")}</div></div>
+            <div><div class="label">Ville</div><div class="value">${escapeHtml(shipment.city || "-")}</div></div>
+            <div><div class="label">Frais livraison</div><div class="value">${escapeHtml(`${money(shipment.delivery_fee)} DT`)}</div></div>
+            <div><div class="label">COD</div><div class="value">${escapeHtml(`${money(shipment.cod_amount)} DT`)}</div></div>
           </div>
         </div>
       `
@@ -808,6 +877,42 @@ export function PortalDashboard({ role, initialData }) {
     )
   }
 
+  function printShipmentList(title, shipments) {
+    printDocument(
+      title,
+      `
+        <table>
+          <thead>
+            <tr>
+              <th>Tracking</th>
+              <th>Titre</th>
+              <th>Statut</th>
+              <th>Destinataire</th>
+              <th>Partenaire</th>
+              <th>Livreur</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${shipments
+              .map(
+                (shipment) => `
+                  <tr>
+                    <td>${escapeHtml(shipment.tracking_number)}</td>
+                    <td>${escapeHtml(shipment.title)}</td>
+                    <td>${escapeHtml(statusLabels[shipment.status] ?? shipment.status)}</td>
+                    <td>${escapeHtml(shipment.recipient_name)}</td>
+                    <td>${escapeHtml(shipment.partner_name || "-")}</td>
+                    <td>${escapeHtml(shipment.driver_name || "-")}</td>
+                  </tr>
+                `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      `
+    )
+  }
+
   return (
     <main className="dashboard-shell">
       <section className="dashboard-hero">
@@ -856,7 +961,7 @@ export function PortalDashboard({ role, initialData }) {
       {error ? <p className="flash-message error">{error}</p> : null}
 
       <section className="dashboard-main-grid">
-        <div className="panel glass-card">
+        <div className="panel glass-card" id="shipment-workspace">
           <div className="panel-header">
             <div>
               <p className="eyebrow">Tracking</p>
@@ -1236,6 +1341,16 @@ export function PortalDashboard({ role, initialData }) {
                         placeholder="Recherche multi-critere : nom, email, telephone, gouvernorat, statut..."
                         onChange={(event) => setAdminSearch(event.target.value)}
                       />
+                      {adminSection === "shipments" ? (
+                        <>
+                          <button type="button" className="primary-button" onClick={() => openShipmentEditor()}>
+                            Ajouter
+                          </button>
+                          <button type="button" className="secondary-button" onClick={() => printShipmentList("Liste des colis", adminShipments)}>
+                            Imprimer
+                          </button>
+                        </>
+                      ) : null}
                       {["clients", "partners", "drivers", "users"].includes(adminSection) ? (
                         <>
                           <button
@@ -1290,6 +1405,46 @@ export function PortalDashboard({ role, initialData }) {
                       ) : null}
                     </div>
                   </div>
+
+                  {adminSection === "shipments" ? (
+                    <div className="admin-record-list">
+                      {adminShipments.length ? adminShipments.map((shipment) => (
+                        <article key={shipment.id} className="mini-card admin-record-card">
+                          <div className="admin-record-main">
+                            <div>
+                              <strong>{shipment.tracking_number}</strong>
+                              <p>{shipment.title} · {statusLabels[shipment.status] ?? shipment.status}</p>
+                            </div>
+                            <span className="admin-record-meta">{shipment.partner_name || "Sans partenaire"} · {shipment.driver_name || "Sans livreur"}</span>
+                          </div>
+                          <div className="admin-record-actions">
+                            <button type="button" className="secondary-button" onClick={() => openShipmentView(shipment)}>
+                              Voir
+                            </button>
+                            <button type="button" className="secondary-button" onClick={() => openShipmentEditor(shipment)}>
+                              Modifier
+                            </button>
+                            <button type="button" className="secondary-button" onClick={() => printShipment(shipment)}>
+                              Imprimer
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost-button"
+                              disabled={busyAction === `delete-${shipment.id}`}
+                              onClick={() => handleDeleteShipment(shipment.id)}
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                        </article>
+                      )) : (
+                        <div className="mini-card">
+                          <strong>Aucun colis trouve</strong>
+                          <span>Essayez un autre filtre ou ajoutez un nouveau colis.</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
 
                   {["clients", "partners", "drivers", "users"].includes(adminSection) ? (
                     <div className="admin-record-list">
@@ -1898,6 +2053,44 @@ export function PortalDashboard({ role, initialData }) {
             </div>
           )}
         </section>
+      ) : null}
+
+      {adminDialog?.type === "shipment-view" && viewedShipment ? (
+        <div className="modal-backdrop" onClick={closeAdminDialog}>
+          <div className="modal-card glass-card" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Consultation colis</p>
+                <h2>{viewedShipment.tracking_number}</h2>
+              </div>
+              <button type="button" className="secondary-button" onClick={closeAdminDialog}>
+                Fermer
+              </button>
+            </div>
+            <div className="application-detail-grid">
+              <article><span>Titre</span><strong>{viewedShipment.title}</strong></article>
+              <article><span>Statut</span><strong>{statusLabels[viewedShipment.status] ?? viewedShipment.status}</strong></article>
+              <article><span>Destinataire</span><strong>{viewedShipment.recipient_name}</strong></article>
+              <article><span>Telephone</span><strong>{viewedShipment.recipient_phone || "-"}</strong></article>
+              <article><span>Adresse</span><strong>{viewedShipment.recipient_address || "-"}</strong></article>
+              <article><span>Gouvernorat</span><strong>{viewedShipment.governorate || "-"}</strong></article>
+              <article><span>Ville</span><strong>{viewedShipment.city || "-"}</strong></article>
+              <article><span>Partenaire</span><strong>{viewedShipment.partner_name || "-"}</strong></article>
+              <article><span>Livreur</span><strong>{viewedShipment.driver_name || "-"}</strong></article>
+              <article><span>Frais livraison</span><strong>{money(viewedShipment.delivery_fee)} DT</strong></article>
+              <article><span>COD</span><strong>{money(viewedShipment.cod_amount)} DT</strong></article>
+              <article className="application-detail-wide"><span>Description</span><strong>{viewedShipment.description || "-"}</strong></article>
+            </div>
+            <div className="shipment-actions">
+              <button type="button" className="primary-button" onClick={() => { closeAdminDialog(); openShipmentEditor(viewedShipment) }}>
+                Modifier
+              </button>
+              <button type="button" className="secondary-button" onClick={() => printShipment(viewedShipment)}>
+                Imprimer
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {adminDialog?.type === "user-form" ? (
