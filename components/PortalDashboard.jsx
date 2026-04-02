@@ -931,10 +931,9 @@ export function PortalDashboard({ role, initialData }) {
         <div className="hero-copy">
           <div>
             <p className="eyebrow">Centre de commandement Sari3a</p>
-            <h1 className={role === "client" || role === "driver" ? "dashboard-hero-title dashboard-hero-title-unified" : "dashboard-hero-title"}>
+            <h1 className={role === "client" || role === "driver" || role === "admin" ? "dashboard-hero-title dashboard-hero-title-unified" : "dashboard-hero-title"}>
               {dashboardHeroTitle(role)}
             </h1>
-            <p>Base libSQL/Turso, suivi GPS Leaflet, timeline temps reel et actions rapides adaptees a votre portail.</p>
           </div>
           <div className="stats-grid">
             <article className="stat-card">
@@ -1332,7 +1331,7 @@ export function PortalDashboard({ role, initialData }) {
                     <div>
                       <p className="eyebrow">Liste active</p>
                       <h3>{adminSections.find((section) => section.key === adminSection)?.label}</h3>
-                      <span>La liste reste visible. Les actions ouvrent une fiche ou un formulaire dedie.</span>
+                      <span>Les donnees sont affichees en table avec actions directes et recherche multi-critere.</span>
                     </div>
                     <div className="admin-toolbar-actions">
                       <input
@@ -1407,37 +1406,49 @@ export function PortalDashboard({ role, initialData }) {
                   </div>
 
                   {adminSection === "shipments" ? (
-                    <div className="admin-record-list">
-                      {adminShipments.length ? adminShipments.map((shipment) => (
-                        <article key={shipment.id} className="mini-card admin-record-card">
-                          <div className="admin-record-main">
-                            <div>
-                              <strong>{shipment.tracking_number}</strong>
-                              <p>{shipment.title} · {statusLabels[shipment.status] ?? shipment.status}</p>
-                            </div>
-                            <span className="admin-record-meta">{shipment.partner_name || "Sans partenaire"} · {shipment.driver_name || "Sans livreur"}</span>
-                          </div>
-                          <div className="admin-record-actions">
-                            <button type="button" className="secondary-button" onClick={() => openShipmentView(shipment)}>
-                              Voir
-                            </button>
-                            <button type="button" className="secondary-button" onClick={() => openShipmentEditor(shipment)}>
-                              Modifier
-                            </button>
-                            <button type="button" className="secondary-button" onClick={() => printShipment(shipment)}>
-                              Imprimer
-                            </button>
-                            <button
-                              type="button"
-                              className="ghost-button"
-                              disabled={busyAction === `delete-${shipment.id}`}
-                              onClick={() => handleDeleteShipment(shipment.id)}
-                            >
-                              Supprimer
-                            </button>
-                          </div>
-                        </article>
-                      )) : (
+                    <div className="admin-table-shell">
+                      {adminShipments.length ? (
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Tracking</th>
+                              <th>Titre</th>
+                              <th>Statut</th>
+                              <th>Partenaire</th>
+                              <th>Livreur</th>
+                              <th>Destinataire</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {adminShipments.map((shipment) => (
+                              <tr key={shipment.id}>
+                                <td>{shipment.tracking_number}</td>
+                                <td>{shipment.title}</td>
+                                <td>{statusLabels[shipment.status] ?? shipment.status}</td>
+                                <td>{shipment.partner_name || "-"}</td>
+                                <td>{shipment.driver_name || "-"}</td>
+                                <td>{shipment.recipient_name}</td>
+                                <td>
+                                  <div className="admin-table-actions">
+                                    <button type="button" className="secondary-button" onClick={() => openShipmentView(shipment)}>Voir</button>
+                                    <button type="button" className="secondary-button" onClick={() => openShipmentEditor(shipment)}>Modifier</button>
+                                    <button type="button" className="secondary-button" onClick={() => printShipment(shipment)}>Imprimer</button>
+                                    <button
+                                      type="button"
+                                      className="ghost-button"
+                                      disabled={busyAction === `delete-${shipment.id}`}
+                                      onClick={() => handleDeleteShipment(shipment.id)}
+                                    >
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
                         <div className="mini-card">
                           <strong>Aucun colis trouve</strong>
                           <span>Essayez un autre filtre ou ajoutez un nouveau colis.</span>
@@ -1447,37 +1458,49 @@ export function PortalDashboard({ role, initialData }) {
                   ) : null}
 
                   {["clients", "partners", "drivers", "users"].includes(adminSection) ? (
-                    <div className="admin-record-list">
-                      {adminUsers.length ? adminUsers.map((user) => (
-                        <article key={user.id} className="mini-card admin-record-card">
-                          <div className="admin-record-main">
-                            <div>
-                              <strong>{user.full_name}</strong>
-                              <p>{roleLabel(user.role)} · {user.email}</p>
-                            </div>
-                            <span className="admin-record-meta">{user.governorate || "Tunisie"} · {user.phone || "Sans telephone"}</span>
-                          </div>
-                          <div className="admin-record-actions">
-                            <button type="button" className="secondary-button" onClick={() => openUserView(user)}>
-                              Voir
-                            </button>
-                            <button type="button" className="secondary-button" onClick={() => openEditUser(user)}>
-                              Modifier
-                            </button>
-                            <button type="button" className="secondary-button" onClick={() => printUser(user)}>
-                              Imprimer
-                            </button>
-                            <button
-                              type="button"
-                              className="ghost-button"
-                              disabled={busyAction === `user-delete-${user.id}`}
-                              onClick={() => handleDeleteUser(user.id)}
-                            >
-                              Supprimer
-                            </button>
-                          </div>
-                        </article>
-                      )) : (
+                    <div className="admin-table-shell">
+                      {adminUsers.length ? (
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Nom</th>
+                              <th>Role</th>
+                              <th>Email</th>
+                              <th>Telephone</th>
+                              <th>Gouvernorat</th>
+                              <th>Statut</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {adminUsers.map((user) => (
+                              <tr key={user.id}>
+                                <td>{user.full_name}</td>
+                                <td>{roleLabel(user.role)}</td>
+                                <td>{user.email}</td>
+                                <td>{user.phone || "-"}</td>
+                                <td>{user.governorate || "-"}</td>
+                                <td>{user.status || "-"}</td>
+                                <td>
+                                  <div className="admin-table-actions">
+                                    <button type="button" className="secondary-button" onClick={() => openUserView(user)}>Voir</button>
+                                    <button type="button" className="secondary-button" onClick={() => openEditUser(user)}>Modifier</button>
+                                    <button type="button" className="secondary-button" onClick={() => printUser(user)}>Imprimer</button>
+                                    <button
+                                      type="button"
+                                      className="ghost-button"
+                                      disabled={busyAction === `user-delete-${user.id}`}
+                                      onClick={() => handleDeleteUser(user.id)}
+                                    >
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
                         <div className="mini-card">
                           <strong>Aucun resultat</strong>
                           <span>Essayez un autre mot-cle ou ajoutez un nouvel enregistrement.</span>
@@ -1487,53 +1510,71 @@ export function PortalDashboard({ role, initialData }) {
                   ) : null}
 
                   {adminSection === "settings" ? (
-                    <div className="admin-record-list">
-                      {adminSettingsItems.map((item) => (
-                        <article key={item.id} className="mini-card admin-record-card">
-                          <div className="admin-record-main">
-                            <div>
-                              <strong>{item.title}</strong>
-                              <p>{item.subtitle}</p>
-                            </div>
-                            <span className="admin-record-meta">{item.note}</span>
-                          </div>
-                          <div className="admin-record-actions">
-                            <button type="button" className="secondary-button" onClick={() => openSettingsDialog("view")}>
-                              Voir
-                            </button>
-                            <button type="button" className="secondary-button" onClick={() => openSettingsDialog("edit")}>
-                              Modifier
-                            </button>
-                            <button type="button" className="secondary-button" onClick={printSettingsOverview}>
-                              Imprimer
-                            </button>
-                          </div>
-                        </article>
-                      ))}
+                    <div className="admin-table-shell">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Rubrique</th>
+                            <th>Resume</th>
+                            <th>Details</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adminSettingsItems.map((item) => (
+                            <tr key={item.id}>
+                              <td>{item.title}</td>
+                              <td>{item.subtitle}</td>
+                              <td>{item.note}</td>
+                              <td>
+                                <div className="admin-table-actions">
+                                  <button type="button" className="secondary-button" onClick={() => openSettingsDialog("view")}>Voir</button>
+                                  <button type="button" className="secondary-button" onClick={() => openSettingsDialog("edit")}>Modifier</button>
+                                  <button type="button" className="secondary-button" onClick={printSettingsOverview}>Imprimer</button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   ) : null}
 
                   {adminSection === "applications" ? (
-                    <div className="admin-record-list">
-                      {adminApplications.length ? adminApplications.map((application) => (
-                        <article key={`${application.applicationType}-${application.id}`} className="mini-card admin-record-card">
-                          <div className="admin-record-main">
-                            <div>
-                              <strong>{application.title}</strong>
-                              <p>{application.applicationType === "driver" ? "Livreur" : "Partenaire"} · {application.email}</p>
-                            </div>
-                            <span className="admin-record-meta">{application.governorate} · {application.subtitle || "Sans detail"}</span>
-                          </div>
-                          <div className="admin-record-actions">
-                            <button type="button" className="secondary-button" onClick={() => openApplicationView(application)}>
-                              Voir
-                            </button>
-                            <button type="button" className="secondary-button" onClick={() => printApplication(application)}>
-                              Imprimer
-                            </button>
-                          </div>
-                        </article>
-                      )) : (
+                    <div className="admin-table-shell">
+                      {adminApplications.length ? (
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Nom</th>
+                              <th>Type</th>
+                              <th>Email</th>
+                              <th>Telephone</th>
+                              <th>Gouvernorat</th>
+                              <th>Detail</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {adminApplications.map((application) => (
+                              <tr key={`${application.applicationType}-${application.id}`}>
+                                <td>{application.title}</td>
+                                <td>{application.applicationType === "driver" ? "Livreur" : "Partenaire"}</td>
+                                <td>{application.email}</td>
+                                <td>{application.phone || "-"}</td>
+                                <td>{application.governorate}</td>
+                                <td>{application.subtitle || "-"}</td>
+                                <td>
+                                  <div className="admin-table-actions">
+                                    <button type="button" className="secondary-button" onClick={() => openApplicationView(application)}>Voir</button>
+                                    <button type="button" className="secondary-button" onClick={() => printApplication(application)}>Imprimer</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
                         <div className="mini-card">
                           <strong>Aucune candidature en instance</strong>
                           <span>Les candidatures en attente apparaitront ici.</span>

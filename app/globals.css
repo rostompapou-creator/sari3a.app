@@ -283,11 +283,11 @@ label {
 }
 
 .dashboard-hero-title-unified {
-  font-size: clamp(1.4rem, 2.7vw, 2.35rem) !important;
+  font-size: clamp(1.2rem, 2.1vw, 1.95rem) !important;
   line-height: 1.05;
-  white-space: normal;
+  white-space: nowrap;
   margin-top: 0.2rem;
-  text-wrap: balance;
+  text-wrap: nowrap;
 }
 
 .hero-text,
@@ -861,11 +861,14 @@ label {
 
 .admin-sidebar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
 }
 
 .admin-nav-button {
+  flex: 0 0 auto;
   min-width: 170px;
   min-height: 48px;
   border-radius: 18px;
@@ -930,6 +933,47 @@ label {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
+}
+
+.admin-table-shell {
+  overflow-x: auto;
+  border-radius: 22px;
+  border: 1px solid rgba(247, 241, 228, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.95rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(247, 241, 228, 0.08);
+  vertical-align: top;
+}
+
+.admin-table th {
+  position: sticky;
+  top: 0;
+  background: rgba(8, 18, 44, 0.96);
+  color: var(--gold-300);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(214, 163, 40, 0.06);
+}
+
+.admin-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .applications-grid {
@@ -1162,11 +1206,11 @@ label {
   }
 
   .admin-sidebar {
-    display: grid;
+    display: flex;
   }
 
   .admin-nav-button {
-    width: 100%;
+    width: auto;
     min-width: 0;
   }
 
@@ -1259,6 +1303,7 @@ label {
   .application-actions-row,
   .shipment-actions,
   .admin-record-actions,
+  .admin-table-actions,
   .toolbar,
   .login-footer-links {
     flex-direction: column;
@@ -1270,6 +1315,7 @@ label {
   .application-actions-row > *,
   .shipment-actions > *,
   .admin-record-actions > *,
+  .admin-table-actions > *,
   .toolbar > * {
     width: 100%;
   }
