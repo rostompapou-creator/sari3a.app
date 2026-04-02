@@ -14,6 +14,7 @@ const shipmentTemplate = {
   client_id: "",
   partner_id: "",
   driver_id: "",
+  status: "pending",
   recipient_name: "",
   recipient_phone: "",
   recipient_address: "",
@@ -50,12 +51,10 @@ function money(value) {
 }
 
 function statusClass(status) {
-  return STATUS_COLORS[status] ?? "status-pending"
-}
-
-function nextStatusLabel(status) {
-  const index = STATUS_STEPS.findIndex((step) => step.key === status)
-  return STATUS_STEPS[index + 1]?.label ?? null
+  if (STATUS_COLORS[status]) return STATUS_COLORS[status]
+  if (String(status).includes("refus") || String(status).includes("cancel")) return "status-rejected"
+  if (String(status).includes("report")) return "status-reported"
+  return "status-pending"
 }
 
 function roleLabel(role) {
@@ -84,6 +83,15 @@ function dashboardHeroTitle(role) {
   return "Supervision globale"
 }
 
+function slugifyStatusLabel(label) {
+  return String(label ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+}
+
 export function PortalDashboard({ role, initialData }) {
   const router = useRouter()
   const [data, setData] = useState(initialData)
@@ -103,6 +111,8 @@ export function PortalDashboard({ role, initialData }) {
     primary_color: initialData.settings?.primary_color ?? "#081a44",
     secondary_color: initialData.settings?.secondary_color ?? "#d6a328"
   }))
+  const [shipmentStatusesForm, setShipmentStatusesForm] = useState(() => initialData.settings?.shipment_statuses ?? [])
+  const [newShipmentStatusLabel, setNewShipmentStatusLabel] = useState("")
   const [selectedShipmentId, setSelectedShipmentId] = useState(initialData.shipments[0]?.id ?? null)
   const [editingShipmentId, setEditingShipmentId] = useState(null)
   const [editingUserId, setEditingUserId] = useState(null)
@@ -114,6 +124,13 @@ export function PortalDashboard({ role, initialData }) {
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const [busyAction, setBusyAction] = useState("")
+
+  const shipmentStatuses = data.statuses?.length ? data.statuses : STATUS_STEPS
+  const progressStatuses = shipmentStatuses.filter((status) => status.type !== "manual")
+  const statusLabels = useMemo(
+    () => Object.fromEntries(shipmentStatuses.map((status) => [status.key, status.label])),
+    [shipmentStatuses]
+  )
 
   const filteredShipments = useMemo(() => {
     return data.shipments.filter((shipment) => {
@@ -129,6 +146,11 @@ export function PortalDashboard({ role, initialData }) {
       return matchesText && matchesStatus
     })
   }, [data.shipments, shipmentFilter, statusFilter])
+
+  const getNextStatusLabel = (status) => {
+    const index = progressStatuses.findIndex((step) => step.key === status)
+    return progressStatuses[index + 1]?.label ?? null
+  }
 
   const selectedShipment =
     filteredShipments.find((shipment) => shipment.id === selectedShipmentId) ??
@@ -146,6 +168,8 @@ export function PortalDashboard({ role, initialData }) {
     () => data.partnerApplications.filter((application) => application.status === "pending"),
     [data.partnerApplications]
   )
+  const partnerFinancialRows = data.financials?.byPartner ?? []
+  const driverFinancialRows = data.financials?.byDriver ?? []
 
   const selectedDriverApplication =
     data.driverApplications.find((application) => application.id === selectedDriverApplicationId) ??
@@ -186,6 +210,7 @@ export function PortalDashboard({ role, initialData }) {
       ...shipmentTemplate,
       partner_id: role === "partner" ? String(data.user.id) : "",
       client_id: role === "client" ? String(data.user.id) : "",
+      status: "pending",
       recipient_name: role === "client" ? data.user.full_name : "",
       recipient_phone: role === "client" ? data.user.phone ?? "" : "",
       recipient_address: role === "client" ? data.user.address ?? "" : "",
@@ -316,7 +341,10 @@ export function PortalDashboard({ role, initialData }) {
     try {
       const updated = await api("/api/settings", {
         method: "PATCH",
-        body: JSON.stringify(settingsForm)
+        body: JSON.stringify({
+          ...settingsForm,
+          shipment_statuses: shipmentStatusesForm
+        })
       })
       setSettingsForm({
         brand_name: updated.brand_name,
@@ -328,8 +356,9 @@ export function PortalDashboard({ role, initialData }) {
         primary_color: updated.primary_color,
         secondary_color: updated.secondary_color
       })
+      setShipmentStatusesForm(updated.shipment_statuses ?? [])
       await refreshDashboard()
-      setMessage("Parametres mis a jour.")
+      setMessage("Parametres et statuts colis mis a jour.")
     } catch (settingsError) {
       setError(settingsError.message)
     } finally {
@@ -351,6 +380,37 @@ export function PortalDashboard({ role, initialData }) {
     } finally {
       setBusyAction("")
     }
+  }
+
+  function handleAddShipmentStatus() {
+    const label = newShipmentStatusLabel.trim()
+    const key = slugifyStatusLabel(label)
+    if (!label || !key) return
+    if (shipmentStatusesForm.some((status) => status.key === key) || shipmentStatuses.some((status) => status.key === key)) {
+      setError("Ce statut existe deja.")
+      return
+    }
+
+    setShipmentStatusesForm((current) => [...current, { key, label }])
+    setNewShipmentStatusLabel("")
+    setError("")
+  }
+
+  function handleShipmentStatusLabelChange(index, label) {
+    setShipmentStatusesForm((current) =>
+      current.map((status, itemIndex) =>
+        itemIndex === index
+          ? {
+              key: slugifyStatusLabel(label),
+              label
+            }
+          : status
+      )
+    )
+  }
+
+  function handleRemoveShipmentStatus(index) {
+    setShipmentStatusesForm((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
   async function handleApplicationDecision(type, id, status) {
@@ -394,6 +454,7 @@ export function PortalDashboard({ role, initialData }) {
       client_id: String(shipment.client_id ?? ""),
       partner_id: String(shipment.partner_id ?? ""),
       driver_id: shipment.driver_id ? String(shipment.driver_id) : "",
+      status: shipment.status ?? "pending",
       recipient_name: shipment.recipient_name ?? "",
       recipient_phone: shipment.recipient_phone ?? "",
       recipient_address: shipment.recipient_address ?? "",
@@ -453,7 +514,7 @@ export function PortalDashboard({ role, initialData }) {
             <h1 className={role === "client" || role === "driver" ? "dashboard-hero-title dashboard-hero-title-unified" : "dashboard-hero-title"}>
               {dashboardHeroTitle(role)}
             </h1>
-            <p>Base SQLite locale, suivi GPS Leaflet, timeline temps reel et actions rapides adaptees a votre portail.</p>
+            <p>Base libSQL/Turso, suivi GPS Leaflet, timeline temps reel et actions rapides adaptees a votre portail.</p>
           </div>
           <div className="stats-grid">
             <article className="stat-card">
@@ -490,7 +551,7 @@ export function PortalDashboard({ role, initialData }) {
               <input placeholder="Tracking, client, titre..." value={shipmentFilter} onChange={(event) => setShipmentFilter(event.target.value)} />
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                 <option value="all">Tous les statuts</option>
-                {STATUS_STEPS.map((step) => (
+                {shipmentStatuses.map((step) => (
                   <option key={step.key} value={step.key}>
                     {step.label}
                   </option>
@@ -507,7 +568,7 @@ export function PortalDashboard({ role, initialData }) {
                     <strong>{shipment.tracking_number}</strong>
                     <h3>{shipment.title}</h3>
                   </div>
-                  <span className={`status-pill ${statusClass(shipment.status)}`}>{TRACKING_LABELS[shipment.status] ?? shipment.status}</span>
+                  <span className={`status-pill ${statusClass(shipment.status)}`}>{statusLabels[shipment.status] ?? TRACKING_LABELS[shipment.status] ?? shipment.status}</span>
                 </div>
                 <p>{shipment.recipient_name} · {shipment.governorate}</p>
                 <p>{shipment.partner_name ?? "Partenaire non affecte"} · {shipment.driver_name ?? "Livreur a assigner"}</p>
@@ -517,9 +578,9 @@ export function PortalDashboard({ role, initialData }) {
                       Modifier
                     </button>
                   ) : null}
-                  {(role === "driver" || role === "partner" || role === "admin") && nextStatusLabel(shipment.status) ? (
+                  {(role === "driver" || role === "partner" || role === "admin") && getNextStatusLabel(shipment.status) ? (
                     <button type="button" className="primary-button" disabled={busyAction === `status-${shipment.id}`} onClick={(event) => { event.stopPropagation(); handleAdvanceStatus(shipment.id) }}>
-                      {nextStatusLabel(shipment.status)}
+                      {getNextStatusLabel(shipment.status)}
                     </button>
                   ) : null}
                   {(role === "partner" || role === "admin" || role === "client") ? (
@@ -557,9 +618,9 @@ export function PortalDashboard({ role, initialData }) {
           {selectedShipment ? (
             <>
               <div className="timeline-progress">
-                {STATUS_STEPS.map((step) => {
-                  const currentIndex = STATUS_STEPS.findIndex((item) => item.key === selectedShipment.status)
-                  const stepIndex = STATUS_STEPS.findIndex((item) => item.key === step.key)
+                {progressStatuses.map((step) => {
+                  const currentIndex = progressStatuses.findIndex((item) => item.key === selectedShipment.status)
+                  const stepIndex = progressStatuses.findIndex((item) => item.key === step.key)
                   const completed = stepIndex <= currentIndex
                   return (
                     <div key={step.key} className={`timeline-step ${completed ? "completed" : ""}`}>
@@ -649,6 +710,27 @@ export function PortalDashboard({ role, initialData }) {
                     </select>
                   </label>
                 ) : null}
+                {(role === "partner" || role === "admin") ? (
+                  <label>
+                    Statut
+                    <select value={shipmentForm.status} onChange={(event) => setShipmentForm((current) => ({ ...current, status: event.target.value }))}>
+                      {shipmentStatuses.map((status) => (
+                        <option key={status.key} value={status.key}>{status.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <label>
+                    Gouvernorat
+                    <select value={shipmentForm.governorate} onChange={(event) => setShipmentForm((current) => ({ ...current, governorate: event.target.value }))}>
+                      {data.governorates.map((governorate) => (
+                        <option key={governorate} value={governorate}>{governorate}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+              <div className="grid-two">
                 <label>
                   Gouvernorat
                   <select value={shipmentForm.governorate} onChange={(event) => setShipmentForm((current) => ({ ...current, governorate: event.target.value }))}>
@@ -657,27 +739,25 @@ export function PortalDashboard({ role, initialData }) {
                     ))}
                   </select>
                 </label>
-              </div>
-              <div className="grid-two">
                 <label>
                   Ville / zone
                   <input value={shipmentForm.city} onChange={(event) => setShipmentForm((current) => ({ ...current, city: event.target.value }))} />
                 </label>
+              </div>
+              <div className="grid-two">
                 <label>
                   Destinataire
                   <input value={shipmentForm.recipient_name} onChange={(event) => setShipmentForm((current) => ({ ...current, recipient_name: event.target.value }))} required />
                 </label>
-              </div>
-              <div className="grid-two">
                 <label>
                   Telephone
                   <input value={shipmentForm.recipient_phone} onChange={(event) => setShipmentForm((current) => ({ ...current, recipient_phone: event.target.value }))} required />
                 </label>
-                <label>
-                  Adresse
-                  <input value={shipmentForm.recipient_address} onChange={(event) => setShipmentForm((current) => ({ ...current, recipient_address: event.target.value }))} required />
-                </label>
               </div>
+              <label>
+                Adresse
+                <input value={shipmentForm.recipient_address} onChange={(event) => setShipmentForm((current) => ({ ...current, recipient_address: event.target.value }))} required />
+              </label>
               <div className="grid-three">
                 <label>
                   COD
@@ -956,6 +1036,119 @@ export function PortalDashboard({ role, initialData }) {
                     {busyAction === "settings" ? "Mise a jour..." : "Enregistrer les parametres"}
                   </button>
                 </form>
+
+                <div className="settings-block">
+                  <div className="panel-header">
+                    <div>
+                      <p className="eyebrow">Colis</p>
+                      <h2>Statuts personnalisables</h2>
+                    </div>
+                  </div>
+
+                  <div className="shipment-status-config">
+                    <div className="mini-card">
+                      <strong>Parcours standard</strong>
+                      <div className="status-pill-list">
+                        {progressStatuses.map((status) => (
+                          <span key={status.key} className={`status-pill ${statusClass(status.key)}`}>
+                            {status.label}
+                          </span>
+                        ))}
+                      </div>
+                      <span>Ces etapes restent la base de la timeline et du suivi transport.</span>
+                    </div>
+
+                    <div className="mini-card">
+                      <strong>Statuts additionnels</strong>
+                      <span>Ajoutez des cas metier comme Refuse, Reporte ou Retour depot, puis enregistrez les parametres.</span>
+
+                      <div className="shipment-status-editor">
+                        {shipmentStatusesForm.length ? shipmentStatusesForm.map((status, index) => (
+                          <div key={`${status.key}-${index}`} className="shipment-status-row">
+                            <input
+                              value={status.label}
+                              placeholder="Nom du statut"
+                              onChange={(event) => handleShipmentStatusLabelChange(index, event.target.value)}
+                            />
+                            <span className="shipment-status-key">{slugifyStatusLabel(status.label) || "cle_auto"}</span>
+                            <button type="button" className="ghost-button" onClick={() => handleRemoveShipmentStatus(index)}>
+                              Supprimer
+                            </button>
+                          </div>
+                        )) : (
+                          <span>Aucun statut additionnel configure pour le moment.</span>
+                        )}
+                      </div>
+
+                      <div className="shipment-status-add">
+                        <input
+                          value={newShipmentStatusLabel}
+                          placeholder='Ex: Refuse ou Reporte'
+                          onChange={(event) => setNewShipmentStatusLabel(event.target.value)}
+                        />
+                        <button type="button" className="secondary-button" onClick={handleAddShipmentStatus}>
+                          Ajouter un statut
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="settings-block">
+                  <div className="panel-header">
+                    <div>
+                      <p className="eyebrow">KPI montants</p>
+                      <h2>Totaux des livraisons</h2>
+                    </div>
+                  </div>
+
+                  <div className="analytics-grid finance-kpi-grid">
+                    <article className="mini-card">
+                      <strong>{money(data.financials?.totalAmount)} DT</strong>
+                      <span>Total cumule des frais de livraison</span>
+                    </article>
+                    <article className="mini-card">
+                      <strong>{partnerFinancialRows.length}</strong>
+                      <span>Partenaires avec montant comptabilise</span>
+                    </article>
+                    <article className="mini-card">
+                      <strong>{driverFinancialRows.length}</strong>
+                      <span>Livreurs avec montant comptabilise</span>
+                    </article>
+                  </div>
+
+                  <div className="finance-breakdown-grid">
+                    <article className="mini-card finance-breakdown-card">
+                      <strong>Montants par partenaire</strong>
+                      <div className="finance-breakdown-list">
+                        {partnerFinancialRows.length ? partnerFinancialRows.map((item) => (
+                          <div key={item.id} className="finance-breakdown-row">
+                            <div>
+                              <span>{item.name}</span>
+                              <small>{item.shipments} colis</small>
+                            </div>
+                            <strong>{money(item.amount)} DT</strong>
+                          </div>
+                        )) : <span>Aucun montant partenaire calcule pour le moment.</span>}
+                      </div>
+                    </article>
+
+                    <article className="mini-card finance-breakdown-card">
+                      <strong>Montants par livreur</strong>
+                      <div className="finance-breakdown-list">
+                        {driverFinancialRows.length ? driverFinancialRows.map((item) => (
+                          <div key={item.id} className="finance-breakdown-row">
+                            <div>
+                              <span>{item.name}</span>
+                              <small>{item.shipments} colis</small>
+                            </div>
+                            <strong>{money(item.amount)} DT</strong>
+                          </div>
+                        )) : <span>Aucun montant livreur calcule pour le moment.</span>}
+                      </div>
+                    </article>
+                  </div>
+                </div>
 
                 <div className="applications-grid">
                   <article className="mini-card">

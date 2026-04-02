@@ -625,6 +625,14 @@ label {
   background: #7af1b8;
 }
 
+.status-rejected {
+  background: #ffb1b1;
+}
+
+.status-reported {
+  background: #ffd98a;
+}
+
 .timeline-progress {
   display: grid;
   gap: 0.75rem;
@@ -765,6 +773,84 @@ label {
   margin-top: 1.2rem;
   padding-top: 1.2rem;
   border-top: 1px solid rgba(241, 209, 123, 0.16);
+}
+
+.shipment-status-config,
+.finance-breakdown-grid {
+  margin-top: 1rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shipment-status-editor,
+.finance-breakdown-list {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.shipment-status-row,
+.finance-breakdown-row {
+  display: grid;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.shipment-status-row {
+  grid-template-columns: minmax(0, 1fr) 140px auto;
+}
+
+.shipment-status-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 14px;
+  padding: 0.35rem 0.8rem;
+  background: rgba(214, 163, 40, 0.12);
+  color: rgba(247, 241, 228, 0.82);
+  font-size: 0.8rem;
+  text-transform: lowercase;
+}
+
+.shipment-status-add {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.status-pill-list {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.finance-kpi-grid {
+  margin-top: 1rem;
+}
+
+.finance-breakdown-card {
+  align-content: start;
+}
+
+.finance-breakdown-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.finance-breakdown-row div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.finance-breakdown-row span,
+.finance-breakdown-row small {
+  color: rgba(247, 241, 228, 0.72);
 }
 
 .applications-grid {
@@ -911,6 +997,8 @@ label {
   .analytics-grid,
   .profile-summary,
   .mini-grid,
+  .shipment-status-config,
+  .finance-breakdown-grid,
   .applications-grid,
   .application-review-grid,
   .application-detail-grid {
@@ -968,12 +1056,19 @@ label {
   .showcase-metrics,
   .analytics-grid,
   .profile-summary,
-  .applications-grid {
+  .applications-grid,
+  .shipment-status-config,
+  .finance-breakdown-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .portal-grid,
   .mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shipment-status-row,
+  .shipment-status-add {
     grid-template-columns: 1fr;
   }
 
