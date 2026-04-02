@@ -538,6 +538,20 @@ label {
   gap: 1rem;
 }
 
+.admin-hero-center {
+  flex: 1 1 auto;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.admin-hero-side {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-left: auto;
+}
+
 .hero-user-meta {
   margin-left: auto;
   display: grid;
@@ -1194,6 +1208,19 @@ label {
   .hero-user-meta {
     margin-left: 0;
     justify-items: start;
+  }
+
+  .admin-hero-center {
+    width: 100%;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .admin-hero-side {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-left: 0;
   }
 
   .stats-grid,

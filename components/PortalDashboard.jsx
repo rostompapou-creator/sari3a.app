@@ -930,29 +930,404 @@ export function PortalDashboard({ role, initialData }) {
     )
   }
 
+  function renderAdminConsole() {
+    return (
+      <section className="admin-console-section">
+        <div className="panel glass-card">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">Admin</p>
+              <h2>Back-office societe</h2>
+            </div>
+            <span className="role-badge">Recherche multi-critere + impression</span>
+          </div>
+
+          <div className="admin-console">
+            <div className="admin-content">
+              <div className="admin-toolbar">
+                <div>
+                  <p className="eyebrow">Liste active</p>
+                  <h3>{adminSections.find((section) => section.key === adminSection)?.label}</h3>
+                  <span>Les donnees sont affichees en table avec actions directes et recherche multi-critere.</span>
+                </div>
+                <div className="admin-toolbar-actions">
+                  <input
+                    className="admin-search-input"
+                    value={adminSearch}
+                    placeholder="Recherche multi-critere : nom, email, telephone, gouvernorat, statut..."
+                    onChange={(event) => setAdminSearch(event.target.value)}
+                  />
+                  {adminSection === "shipments" ? (
+                    <>
+                      <button type="button" className="primary-button" onClick={() => openShipmentEditor()}>
+                        Ajouter
+                      </button>
+                      <button type="button" className="secondary-button" onClick={() => printShipmentList("Liste des colis", adminShipments)}>
+                        Imprimer
+                      </button>
+                    </>
+                  ) : null}
+                  {["clients", "partners", "drivers", "users"].includes(adminSection) ? (
+                    <>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() =>
+                          openUserForm(
+                            adminSection === "clients"
+                              ? "client"
+                              : adminSection === "partners"
+                                ? "partner"
+                                : adminSection === "drivers"
+                                  ? "driver"
+                                  : "admin"
+                          )
+                        }
+                      >
+                        Ajouter
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() =>
+                          printUserList(
+                            `Liste ${adminSections.find((section) => section.key === adminSection)?.label}`,
+                            adminUsers
+                          )
+                        }
+                      >
+                        Imprimer
+                      </button>
+                    </>
+                  ) : null}
+                  {adminSection === "settings" ? (
+                    <>
+                      <button type="button" className="primary-button" onClick={() => openSettingsDialog("edit")}>
+                        Modifier
+                      </button>
+                      <button type="button" className="secondary-button" onClick={printSettingsOverview}>
+                        Imprimer
+                      </button>
+                    </>
+                  ) : null}
+                  {adminSection === "analytics" ? (
+                    <button type="button" className="secondary-button" onClick={printAnalyticsOverview}>
+                      Imprimer
+                    </button>
+                  ) : null}
+                  {adminSection === "applications" ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => printApplicationList("Candidatures en instance", adminApplications)}
+                    >
+                      Imprimer
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {adminSection === "shipments" ? (
+                <div className="admin-table-shell">
+                  {adminShipments.length ? (
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Tracking</th>
+                          <th>Titre</th>
+                          <th>Statut</th>
+                          <th>Partenaire</th>
+                          <th>Livreur</th>
+                          <th>Destinataire</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminShipments.map((shipment) => (
+                          <tr key={shipment.id}>
+                            <td>{shipment.tracking_number}</td>
+                            <td>{shipment.title}</td>
+                            <td>{statusLabels[shipment.status] ?? shipment.status}</td>
+                            <td>{shipment.partner_name || "-"}</td>
+                            <td>{shipment.driver_name || "-"}</td>
+                            <td>{shipment.recipient_name}</td>
+                            <td>
+                              <div className="admin-table-actions">
+                                <button type="button" className="secondary-button" onClick={() => openShipmentView(shipment)}>Voir</button>
+                                <button type="button" className="secondary-button" onClick={() => openShipmentEditor(shipment)}>Modifier</button>
+                                <button type="button" className="secondary-button" onClick={() => printShipment(shipment)}>Imprimer</button>
+                                <button
+                                  type="button"
+                                  className="ghost-button"
+                                  disabled={busyAction === `delete-${shipment.id}`}
+                                  onClick={() => handleDeleteShipment(shipment.id)}
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="mini-card">
+                      <strong>Aucun colis trouve</strong>
+                      <span>Essayez un autre filtre ou ajoutez un nouveau colis.</span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {["clients", "partners", "drivers", "users"].includes(adminSection) ? (
+                <div className="admin-table-shell">
+                  {adminUsers.length ? (
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Nom</th>
+                          <th>Role</th>
+                          <th>Email</th>
+                          <th>Telephone</th>
+                          <th>Gouvernorat</th>
+                          <th>Statut</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminUsers.map((user) => (
+                          <tr key={user.id}>
+                            <td>{user.full_name}</td>
+                            <td>{roleLabel(user.role)}</td>
+                            <td>{user.email}</td>
+                            <td>{user.phone || "-"}</td>
+                            <td>{user.governorate || "-"}</td>
+                            <td>{user.status || "-"}</td>
+                            <td>
+                              <div className="admin-table-actions">
+                                <button type="button" className="secondary-button" onClick={() => openUserView(user)}>Voir</button>
+                                <button type="button" className="secondary-button" onClick={() => openEditUser(user)}>Modifier</button>
+                                <button type="button" className="secondary-button" onClick={() => printUser(user)}>Imprimer</button>
+                                <button
+                                  type="button"
+                                  className="ghost-button"
+                                  disabled={busyAction === `user-delete-${user.id}`}
+                                  onClick={() => handleDeleteUser(user.id)}
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="mini-card">
+                      <strong>Aucun resultat</strong>
+                      <span>Essayez un autre mot-cle ou ajoutez un nouvel enregistrement.</span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {adminSection === "settings" ? (
+                <div className="admin-table-shell">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Rubrique</th>
+                        <th>Resume</th>
+                        <th>Details</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminSettingsItems.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.title}</td>
+                          <td>{item.subtitle}</td>
+                          <td>{item.note}</td>
+                          <td>
+                            <div className="admin-table-actions">
+                              <button type="button" className="secondary-button" onClick={() => openSettingsDialog("view")}>Voir</button>
+                              <button type="button" className="secondary-button" onClick={() => openSettingsDialog("edit")}>Modifier</button>
+                              <button type="button" className="secondary-button" onClick={printSettingsOverview}>Imprimer</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {adminSection === "analytics" ? (
+                <div className="admin-content">
+                  <div className="analytics-grid finance-kpi-grid">
+                    <article className="mini-card">
+                      <strong>{money(data.financials?.totalAmount)} DT</strong>
+                      <span>Total cumule des frais de livraison</span>
+                    </article>
+                    <article className="mini-card">
+                      <strong>{partnerFinancialRows.length}</strong>
+                      <span>Partenaires avec montant comptabilise</span>
+                    </article>
+                    <article className="mini-card">
+                      <strong>{driverFinancialRows.length}</strong>
+                      <span>Livreurs avec montant comptabilise</span>
+                    </article>
+                    <article className="mini-card">
+                      <strong>{data.stats.total}</strong>
+                      <span>Total colis</span>
+                    </article>
+                    <article className="mini-card">
+                      <strong>{data.stats.inMotion}</strong>
+                      <span>En mouvement</span>
+                    </article>
+                    <article className="mini-card">
+                      <strong>{money(data.stats.codPending)} DT</strong>
+                      <span>COD en attente</span>
+                    </article>
+                  </div>
+
+                  <div className="admin-table-shell">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Partenaire</th>
+                          <th>Colis</th>
+                          <th>Montant</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {partnerFinancialRows.map((item) => (
+                          <tr key={item.id}>
+                            <td>{item.name}</td>
+                            <td>{item.shipments}</td>
+                            <td>{money(item.amount)} DT</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="admin-table-shell">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Livreur</th>
+                          <th>Colis</th>
+                          <th>Montant</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {driverFinancialRows.map((item) => (
+                          <tr key={item.id}>
+                            <td>{item.name}</td>
+                            <td>{item.shipments}</td>
+                            <td>{money(item.amount)} DT</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+
+              {adminSection === "applications" ? (
+                <div className="admin-table-shell">
+                  {adminApplications.length ? (
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Nom</th>
+                          <th>Type</th>
+                          <th>Email</th>
+                          <th>Telephone</th>
+                          <th>Gouvernorat</th>
+                          <th>Detail</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminApplications.map((application) => (
+                          <tr key={`${application.applicationType}-${application.id}`}>
+                            <td>{application.title}</td>
+                            <td>{application.applicationType === "driver" ? "Livreur" : "Partenaire"}</td>
+                            <td>{application.email}</td>
+                            <td>{application.phone || "-"}</td>
+                            <td>{application.governorate}</td>
+                            <td>{application.subtitle || "-"}</td>
+                            <td>
+                              <div className="admin-table-actions">
+                                <button type="button" className="secondary-button" onClick={() => openApplicationView(application)}>Voir</button>
+                                <button type="button" className="secondary-button" onClick={() => printApplication(application)}>Imprimer</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="mini-card">
+                      <strong>Aucune candidature en instance</strong>
+                      <span>Les candidatures en attente apparaitront ici.</span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <main className="dashboard-shell">
       <section className="dashboard-hero">
         <div className="dashboard-hero-top">
           <Sari3aLogo compact />
-          <div className="hero-user-meta">
-            <span className="role-badge">{roleLabel(role)}</span>
-            <strong>{data.user.full_name}</strong>
-            <span>{data.user.governorate}</span>
-          </div>
-          <button type="button" className="secondary-button" onClick={handleLogout}>
-            Deconnexion
-          </button>
+          {role === "admin" ? (
+            <>
+              <div className="admin-hero-center">
+                <p className="eyebrow">Centre de commandement Sari3a</p>
+                <h1 className="dashboard-hero-title dashboard-hero-title-unified">{dashboardHeroTitle(role)}</h1>
+              </div>
+              <div className="admin-hero-side">
+                <div className="hero-user-meta">
+                  <span className="role-badge">{roleLabel(role)}</span>
+                  <strong>{data.user.full_name}</strong>
+                  <span>{data.user.governorate}</span>
+                </div>
+                <button type="button" className="secondary-button" onClick={handleLogout}>
+                  Deconnexion
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="hero-user-meta">
+                <span className="role-badge">{roleLabel(role)}</span>
+                <strong>{data.user.full_name}</strong>
+                <span>{data.user.governorate}</span>
+              </div>
+              <button type="button" className="secondary-button" onClick={handleLogout}>
+                Deconnexion
+              </button>
+            </>
+          )}
         </div>
 
-        <div className="hero-copy">
-          <div>
-            <p className="eyebrow">Centre de commandement Sari3a</p>
-            <h1 className={role === "client" || role === "driver" || role === "admin" ? "dashboard-hero-title dashboard-hero-title-unified" : "dashboard-hero-title"}>
-              {dashboardHeroTitle(role)}
-            </h1>
-          </div>
-          {role !== "admin" ? (
+        {role !== "admin" ? (
+          <div className="hero-copy">
+            <div>
+              <p className="eyebrow">Centre de commandement Sari3a</p>
+              <h1 className={role === "client" || role === "driver" || role === "admin" ? "dashboard-hero-title dashboard-hero-title-unified" : "dashboard-hero-title"}>
+                {dashboardHeroTitle(role)}
+              </h1>
+            </div>
             <div className="stats-grid">
               <article className="stat-card">
                 <span>Colis</span>
@@ -971,8 +1346,8 @@ export function PortalDashboard({ role, initialData }) {
                 <strong>{money(data.stats.codPending)} DT</strong>
               </article>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </section>
 
       {role === "admin" ? (
@@ -1004,6 +1379,8 @@ export function PortalDashboard({ role, initialData }) {
 
       {message ? <p className="flash-message success">{message}</p> : null}
       {error ? <p className="flash-message error">{error}</p> : null}
+
+      {role === "admin" ? renderAdminConsole() : null}
 
       <section className="dashboard-main-grid">
         <div className="panel glass-card" id="shipment-workspace">
@@ -1345,7 +1722,7 @@ export function PortalDashboard({ role, initialData }) {
             </div>
           </div>
 
-          {role === "admin" ? (
+          {role === "admin" && false ? (
             <div className="panel glass-card">
               <div className="panel-header">
                 <div>
