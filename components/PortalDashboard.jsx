@@ -205,6 +205,7 @@ export function PortalDashboard({ role, initialData }) {
     { key: "partners", label: "Partenaires" },
     { key: "drivers", label: "Livreurs" },
     { key: "settings", label: "Parametres societe" },
+    { key: "analytics", label: "Analytics" },
     { key: "applications", label: "Candidatures en instance" },
     { key: "users", label: "Utilisateurs" }
   ]
@@ -238,15 +239,9 @@ export function PortalDashboard({ role, initialData }) {
         title: "Statuts colis",
         subtitle: `${progressStatuses.length} standards + ${shipmentStatusesForm.length} additionnels`,
         note: shipmentStatusesForm.length ? shipmentStatusesForm.map((status) => status.label).join(", ") : "Aucun statut additionnel"
-      },
-      {
-        id: "financials",
-        title: "KPI montants",
-        subtitle: `${money(data.financials?.totalAmount)} DT au total`,
-        note: `${partnerFinancialRows.length} partenaires · ${driverFinancialRows.length} livreurs`
       }
     ],
-    [settingsForm, progressStatuses.length, shipmentStatusesForm, data.financials?.totalAmount, partnerFinancialRows.length, driverFinancialRows.length]
+    [settingsForm, progressStatuses.length, shipmentStatusesForm]
   )
   const adminUserCollections = {
     clients: data.clients,
@@ -393,6 +388,7 @@ export function PortalDashboard({ role, initialData }) {
 
       await refreshDashboard()
       resetShipmentForm()
+      if (adminDialog?.type === "shipment-form") closeAdminDialog()
     } catch (submitError) {
       setError(submitError.message)
     } finally {
@@ -663,16 +659,22 @@ export function PortalDashboard({ role, initialData }) {
     setAdminDialog({ type: "settings", mode })
   }
 
-  function jumpToShipmentWorkspace() {
+  function openShipmentEditor(shipment = null) {
+    if (shipment) {
+      loadShipmentForEdit(shipment)
+      setSelectedShipmentId(shipment.id)
+    } else {
+      resetShipmentForm()
+    }
+
+    if (role === "admin") {
+      setAdminDialog({ type: "shipment-form" })
+      return
+    }
+
+    setSelectedShipmentId(shipment?.id ?? selectedShipmentId)
     const section = document.getElementById("shipment-workspace")
     section?.scrollIntoView({ behavior: "smooth", block: "start" })
-  }
-
-  function openShipmentEditor(shipment = null) {
-    if (shipment) loadShipmentForEdit(shipment)
-    else resetShipmentForm()
-    setSelectedShipmentId(shipment?.id ?? selectedShipmentId)
-    jumpToShipmentWorkspace()
     setMessage(shipment ? "Le formulaire colis est charge pour modification." : "Le formulaire colis est pret pour un nouvel ajout.")
   }
 
@@ -797,8 +799,23 @@ export function PortalDashboard({ role, initialData }) {
             <div><div class="label">Email</div><div class="value">${escapeHtml(settingsForm.support_email || "-")}</div></div>
             <div><div class="label">Hero</div><div class="value">${escapeHtml(settingsForm.hero_title || "-")}</div></div>
             <div><div class="label">Statuts colis</div><div class="value">${escapeHtml(shipmentStatusesForm.map((status) => status.label).join(", ") || "Aucun statut additionnel")}</div></div>
-            <div><div class="label">Total livraisons</div><div class="value">${escapeHtml(`${money(data.financials?.totalAmount)} DT`)}</div></div>
             <div><div class="label">Candidatures en attente</div><div class="value">${escapeHtml(`${pendingApplications.length}`)}</div></div>
+          </div>
+        </div>
+      `
+    )
+  }
+
+  function printAnalyticsOverview() {
+    printDocument(
+      "Analytics livraisons",
+      `
+        <div class="card">
+          <div class="grid">
+            <div><div class="label">Total livraisons</div><div class="value">${escapeHtml(`${money(data.financials?.totalAmount)} DT`)}</div></div>
+            <div><div class="label">Partenaires</div><div class="value">${escapeHtml(`${partnerFinancialRows.length}`)}</div></div>
+            <div><div class="label">Livreurs</div><div class="value">${escapeHtml(`${driverFinancialRows.length}`)}</div></div>
+            <div><div class="label">Colis en attente</div><div class="value">${escapeHtml(`${data.shipments.filter((shipment) => shipment.status === "pending").length}`)}</div></div>
           </div>
         </div>
       `
@@ -993,7 +1010,7 @@ export function PortalDashboard({ role, initialData }) {
                 <p>{shipment.partner_name ?? "Partenaire non affecte"} · {shipment.driver_name ?? "Livreur a assigner"}</p>
                 <div className="shipment-actions">
                   {(role === "partner" || role === "admin" || (role === "client" && ["pending", "picked_up"].includes(shipment.status))) ? (
-                    <button type="button" className="secondary-button" onClick={(event) => { event.stopPropagation(); loadShipmentForEdit(shipment) }}>
+                    <button type="button" className="secondary-button" onClick={(event) => { event.stopPropagation(); role === "admin" ? openShipmentEditor(shipment) : loadShipmentForEdit(shipment) }}>
                       Modifier
                     </button>
                   ) : null}
@@ -1064,7 +1081,7 @@ export function PortalDashboard({ role, initialData }) {
           )}
         </div>
 
-        {(role === "client" || role === "partner" || role === "admin") ? (
+        {(role === "client" || role === "partner") ? (
           <div className="panel glass-card">
             <div className="panel-header">
               <div>
@@ -1393,6 +1410,11 @@ export function PortalDashboard({ role, initialData }) {
                           </button>
                         </>
                       ) : null}
+                      {adminSection === "analytics" ? (
+                        <button type="button" className="secondary-button" onClick={printAnalyticsOverview}>
+                          Imprimer
+                        </button>
+                      ) : null}
                       {adminSection === "applications" ? (
                         <button
                           type="button"
@@ -1537,6 +1559,67 @@ export function PortalDashboard({ role, initialData }) {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  ) : null}
+
+                  {adminSection === "analytics" ? (
+                    <div className="admin-content">
+                      <div className="analytics-grid finance-kpi-grid">
+                        <article className="mini-card">
+                          <strong>{money(data.financials?.totalAmount)} DT</strong>
+                          <span>Total cumule des frais de livraison</span>
+                        </article>
+                        <article className="mini-card">
+                          <strong>{partnerFinancialRows.length}</strong>
+                          <span>Partenaires avec montant comptabilise</span>
+                        </article>
+                        <article className="mini-card">
+                          <strong>{driverFinancialRows.length}</strong>
+                          <span>Livreurs avec montant comptabilise</span>
+                        </article>
+                      </div>
+
+                      <div className="admin-table-shell">
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Partenaire</th>
+                              <th>Colis</th>
+                              <th>Montant</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {partnerFinancialRows.map((item) => (
+                              <tr key={item.id}>
+                                <td>{item.name}</td>
+                                <td>{item.shipments}</td>
+                                <td>{money(item.amount)} DT</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="admin-table-shell">
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Livreur</th>
+                              <th>Colis</th>
+                              <th>Montant</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {driverFinancialRows.map((item) => (
+                              <tr key={item.id}>
+                                <td>{item.name}</td>
+                                <td>{item.shipments}</td>
+                                <td>{money(item.amount)} DT</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ) : null}
 
@@ -2096,6 +2179,148 @@ export function PortalDashboard({ role, initialData }) {
         </section>
       ) : null}
 
+      {adminDialog?.type === "shipment-form" ? (
+        <div className="modal-backdrop" onClick={closeAdminDialog}>
+          <div className="modal-card glass-card" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">{editingShipmentId ? "Edition" : "Creation"}</p>
+                <h2>CRUD colis</h2>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => { resetShipmentForm(); closeAdminDialog() }}>
+                Fermer
+              </button>
+            </div>
+
+            <form className="stack-form dense" onSubmit={handleShipmentSubmit}>
+              <div className="grid-two">
+                <label>
+                  Titre
+                  <input value={shipmentForm.title} onChange={(event) => setShipmentForm((current) => ({ ...current, title: event.target.value }))} required />
+                </label>
+                <label>
+                  Type
+                  <input value={shipmentForm.package_type} onChange={(event) => setShipmentForm((current) => ({ ...current, package_type: event.target.value }))} />
+                </label>
+              </div>
+              <label>
+                Description
+                <textarea rows="2" value={shipmentForm.description} onChange={(event) => setShipmentForm((current) => ({ ...current, description: event.target.value }))} />
+              </label>
+              <div className="grid-two">
+                <label>
+                  Partenaire
+                  <select value={shipmentForm.partner_id} onChange={(event) => setShipmentForm((current) => ({ ...current, partner_id: event.target.value }))} required>
+                    <option value="">Choisir</option>
+                    {data.partners.map((partner) => (
+                      <option key={partner.id} value={partner.id}>{partner.full_name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Client
+                  <select value={shipmentForm.client_id} onChange={(event) => setShipmentForm((current) => ({ ...current, client_id: event.target.value }))} required>
+                    <option value="">Choisir</option>
+                    {data.clients.map((client) => (
+                      <option key={client.id} value={client.id}>{client.full_name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="grid-two">
+                <label>
+                  Livreur
+                  <select value={shipmentForm.driver_id} onChange={(event) => setShipmentForm((current) => ({ ...current, driver_id: event.target.value }))}>
+                    <option value="">Aucun</option>
+                    {data.drivers.map((driver) => (
+                      <option key={driver.id} value={driver.id}>{driver.full_name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Statut
+                  <select value={shipmentForm.status} onChange={(event) => setShipmentForm((current) => ({ ...current, status: event.target.value }))}>
+                    {shipmentStatuses.map((status) => (
+                      <option key={status.key} value={status.key}>{status.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="grid-two">
+                <label>
+                  Gouvernorat
+                  <select value={shipmentForm.governorate} onChange={(event) => setShipmentForm((current) => ({ ...current, governorate: event.target.value }))}>
+                    {data.governorates.map((governorate) => (
+                      <option key={governorate} value={governorate}>{governorate}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Ville / zone
+                  <input value={shipmentForm.city} onChange={(event) => setShipmentForm((current) => ({ ...current, city: event.target.value }))} />
+                </label>
+              </div>
+              <div className="grid-two">
+                <label>
+                  Destinataire
+                  <input value={shipmentForm.recipient_name} onChange={(event) => setShipmentForm((current) => ({ ...current, recipient_name: event.target.value }))} required />
+                </label>
+                <label>
+                  Telephone
+                  <input value={shipmentForm.recipient_phone} onChange={(event) => setShipmentForm((current) => ({ ...current, recipient_phone: event.target.value }))} required />
+                </label>
+              </div>
+              <label>
+                Adresse
+                <input value={shipmentForm.recipient_address} onChange={(event) => setShipmentForm((current) => ({ ...current, recipient_address: event.target.value }))} required />
+              </label>
+              <div className="grid-three">
+                <label>
+                  COD
+                  <input type="number" step="0.01" value={shipmentForm.cod_amount} onChange={(event) => setShipmentForm((current) => ({ ...current, cod_amount: event.target.value }))} />
+                </label>
+                <label>
+                  Frais
+                  <input type="number" step="0.01" value={shipmentForm.delivery_fee} onChange={(event) => setShipmentForm((current) => ({ ...current, delivery_fee: event.target.value }))} />
+                </label>
+                <label>
+                  Poids
+                  <input type="number" step="0.1" value={shipmentForm.weight} onChange={(event) => setShipmentForm((current) => ({ ...current, weight: event.target.value }))} />
+                </label>
+              </div>
+              <div className="grid-two">
+                <label>
+                  Pickup lat/lng
+                  <div className="inline-pair">
+                    <input value={shipmentForm.pickup_lat} onChange={(event) => setShipmentForm((current) => ({ ...current, pickup_lat: event.target.value }))} />
+                    <input value={shipmentForm.pickup_lng} onChange={(event) => setShipmentForm((current) => ({ ...current, pickup_lng: event.target.value }))} />
+                  </div>
+                </label>
+                <label>
+                  Livraison lat/lng
+                  <div className="inline-pair">
+                    <input value={shipmentForm.delivery_lat} onChange={(event) => setShipmentForm((current) => ({ ...current, delivery_lat: event.target.value }))} />
+                    <input value={shipmentForm.delivery_lng} onChange={(event) => setShipmentForm((current) => ({ ...current, delivery_lng: event.target.value }))} />
+                  </div>
+                </label>
+              </div>
+              <label>
+                Notes
+                <textarea rows="2" value={shipmentForm.notes} onChange={(event) => setShipmentForm((current) => ({ ...current, notes: event.target.value }))} />
+              </label>
+              <div className="shipment-actions">
+                <button type="submit" className="primary-button" disabled={busyAction === "shipment"}>
+                  {busyAction === "shipment" ? "Enregistrement..." : editingShipmentId ? "Mettre a jour le colis" : "Creer le colis"}
+                </button>
+                <button type="button" className="secondary-button" onClick={() => { resetShipmentForm(); closeAdminDialog() }}>
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
       {adminDialog?.type === "shipment-view" && viewedShipment ? (
         <div className="modal-backdrop" onClick={closeAdminDialog}>
           <div className="modal-card glass-card" onClick={(event) => event.stopPropagation()}>
@@ -2371,20 +2596,6 @@ export function PortalDashboard({ role, initialData }) {
                       </div>
                     </article>
                   ))}
-                </div>
-                <div className="analytics-grid finance-kpi-grid">
-                  <article className="mini-card">
-                    <strong>{money(data.financials?.totalAmount)} DT</strong>
-                    <span>Total des livraisons</span>
-                  </article>
-                  <article className="mini-card">
-                    <strong>{partnerFinancialRows.length}</strong>
-                    <span>Partenaires comptabilises</span>
-                  </article>
-                  <article className="mini-card">
-                    <strong>{driverFinancialRows.length}</strong>
-                    <span>Livreurs comptabilises</span>
-                  </article>
                 </div>
                 <div className="shipment-actions">
                   <button type="button" className="primary-button" onClick={() => openSettingsDialog("edit")}>
