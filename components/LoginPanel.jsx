@@ -95,7 +95,6 @@ export function LoginPanel({ role, demoEnabled }) {
 
           <div className="login-footer-links">
             <Link href="/">Retour a l'accueil</Link>
-            <Link href="/login/client">Tester le portail client</Link>
           </div>
         </div>
       </section>

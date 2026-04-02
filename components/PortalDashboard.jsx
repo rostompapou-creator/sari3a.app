@@ -788,8 +788,36 @@ export function PortalDashboard({ role, initialData }) {
         </body>
       </html>`)
     printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
+
+    const runPrint = () => {
+      printWindow.focus()
+      printWindow.print()
+    }
+
+    const images = Array.from(printWindow.document.images)
+    if (!images.length) {
+      window.setTimeout(runPrint, 150)
+      return
+    }
+
+    let pending = images.filter((image) => !image.complete).length
+    if (pending === 0) {
+      window.setTimeout(runPrint, 150)
+      return
+    }
+
+    const markReady = () => {
+      pending -= 1
+      if (pending <= 0) window.setTimeout(runPrint, 150)
+    }
+
+    images.forEach((image) => {
+      if (image.complete) return
+      image.addEventListener("load", markReady, { once: true })
+      image.addEventListener("error", markReady, { once: true })
+    })
+
+    window.setTimeout(runPrint, 2500)
   }
 
   function printUser(user) {
