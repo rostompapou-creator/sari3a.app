@@ -888,24 +888,26 @@ label {
 }
 
 .admin-sidebar {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 0.2rem;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0.45rem;
+  overflow: visible;
+  padding-bottom: 0;
   width: 100%;
 }
 
 .admin-nav-button {
-  flex: 0 0 auto;
-  min-width: 155px;
-  min-height: 44px;
-  border-radius: 18px;
+  min-width: 0;
+  min-height: 40px;
+  border-radius: 16px;
   border: 1px solid rgba(247, 241, 228, 0.12);
   background: rgba(255, 255, 255, 0.04);
   color: inherit;
   text-align: center;
-  padding: 0.72rem 0.95rem;
+  padding: 0.58rem 0.5rem;
+  font-size: 0.92rem;
+  line-height: 1.15;
   transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
 }
 
@@ -1286,11 +1288,13 @@ label {
 
   .admin-sidebar {
     display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
   }
 
   .admin-nav-button {
     width: auto;
-    min-width: 0;
+    min-width: 140px;
   }
 
   .map-canvas {
