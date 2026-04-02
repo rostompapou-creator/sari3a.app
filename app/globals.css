@@ -859,12 +859,27 @@ label {
   gap: 1rem;
 }
 
+.admin-top-menu {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+}
+
+.admin-top-menu-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
 .admin-sidebar {
   display: flex;
   flex-wrap: nowrap;
   gap: 0.75rem;
   overflow-x: auto;
   padding-bottom: 0.2rem;
+  width: 100%;
 }
 
 .admin-nav-button {
@@ -1133,6 +1148,11 @@ label {
 @media (max-width: 920px) {
   .landing-topbar,
   .dashboard-hero-top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-top-menu-header {
     align-items: flex-start;
     flex-direction: column;
   }

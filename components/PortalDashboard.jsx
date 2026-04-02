@@ -205,7 +205,7 @@ export function PortalDashboard({ role, initialData }) {
     { key: "partners", label: "Partenaires" },
     { key: "drivers", label: "Livreurs" },
     { key: "settings", label: "Parametres societe" },
-    { key: "analytics", label: "Analytics" },
+    { key: "analytics", label: "Lecture business" },
     { key: "applications", label: "Candidatures en instance" },
     { key: "users", label: "Utilisateurs" }
   ]
@@ -952,26 +952,55 @@ export function PortalDashboard({ role, initialData }) {
               {dashboardHeroTitle(role)}
             </h1>
           </div>
-          <div className="stats-grid">
-            <article className="stat-card">
-              <span>Colis</span>
-              <strong>{data.stats.total}</strong>
-            </article>
-            <article className="stat-card">
-              <span>En mouvement</span>
-              <strong>{data.stats.inMotion}</strong>
-            </article>
-            <article className="stat-card">
-              <span>Livres</span>
-              <strong>{data.stats.delivered}</strong>
-            </article>
-            <article className="stat-card">
-              <span>COD en attente</span>
-              <strong>{money(data.stats.codPending)} DT</strong>
-            </article>
-          </div>
+          {role !== "admin" ? (
+            <div className="stats-grid">
+              <article className="stat-card">
+                <span>Colis</span>
+                <strong>{data.stats.total}</strong>
+              </article>
+              <article className="stat-card">
+                <span>En mouvement</span>
+                <strong>{data.stats.inMotion}</strong>
+              </article>
+              <article className="stat-card">
+                <span>Livres</span>
+                <strong>{data.stats.delivered}</strong>
+              </article>
+              <article className="stat-card">
+                <span>COD en attente</span>
+                <strong>{money(data.stats.codPending)} DT</strong>
+              </article>
+            </div>
+          ) : null}
         </div>
       </section>
+
+      {role === "admin" ? (
+        <section className="admin-top-menu glass-card">
+          <div className="admin-top-menu-header">
+            <div>
+              <p className="eyebrow">Navigation admin</p>
+              <h2>Tables & rubriques</h2>
+            </div>
+            <span className="role-badge">Recherche multi-critere + impression</span>
+          </div>
+          <div className="admin-sidebar">
+            {adminSections.map((section) => (
+              <button
+                key={section.key}
+                type="button"
+                className={`admin-nav-button ${adminSection === section.key ? "is-active" : ""}`}
+                onClick={() => {
+                  setAdminSection(section.key)
+                  setAdminSearch("")
+                }}
+              >
+                {section.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {message ? <p className="flash-message success">{message}</p> : null}
       {error ? <p className="flash-message error">{error}</p> : null}
@@ -1327,22 +1356,6 @@ export function PortalDashboard({ role, initialData }) {
               </div>
 
               <div className="admin-console">
-                <aside className="admin-sidebar">
-                  {adminSections.map((section) => (
-                    <button
-                      key={section.key}
-                      type="button"
-                      className={`admin-nav-button ${adminSection === section.key ? "is-active" : ""}`}
-                      onClick={() => {
-                        setAdminSection(section.key)
-                        setAdminSearch("")
-                      }}
-                    >
-                      {section.label}
-                    </button>
-                  ))}
-                </aside>
-
                 <div className="admin-content">
                   <div className="admin-toolbar">
                     <div>
