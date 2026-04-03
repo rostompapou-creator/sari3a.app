@@ -55,6 +55,36 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString("fr-FR")
 }
 
+function shipmentDateSearchTerms(value) {
+  if (!value) return []
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return [String(value)]
+
+  return [
+    String(value),
+    date.toLocaleString("fr-FR"),
+    date.toLocaleDateString("fr-FR"),
+    date.toLocaleString("sv-SE").replace(" ", "T"),
+    date.toISOString().slice(0, 10)
+  ]
+}
+
+function shipmentMatchesDateRange(shipment, from, to) {
+  if (!from && !to) return true
+  if (!shipment?.created_at) return false
+
+  const shipmentDate = new Date(shipment.created_at)
+  if (Number.isNaN(shipmentDate.getTime())) return false
+
+  const fromDate = from ? new Date(`${from}T00:00:00`) : null
+  const toDate = to ? new Date(`${to}T23:59:59.999`) : null
+
+  if (fromDate && shipmentDate < fromDate) return false
+  if (toDate && shipmentDate > toDate) return false
+  return true
+}
+
 function statusClass(status) {
   if (STATUS_COLORS[status]) return STATUS_COLORS[status]
   if (String(status).includes("refus") || String(status).includes("cancel")) return "status-rejected"
@@ -196,8 +226,12 @@ export function PortalDashboard({ role, initialData }) {
   const [selectedPartnerApplicationId, setSelectedPartnerApplicationId] = useState(initialData.partnerApplications[0]?.id ?? null)
   const [shipmentFilter, setShipmentFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [shipmentDateFrom, setShipmentDateFrom] = useState("")
+  const [shipmentDateTo, setShipmentDateTo] = useState("")
   const [adminSection, setAdminSection] = useState("clients")
   const [adminSearch, setAdminSearch] = useState("")
+  const [adminDateFrom, setAdminDateFrom] = useState("")
+  const [adminDateTo, setAdminDateTo] = useState("")
   const [adminDialog, setAdminDialog] = useState(null)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
@@ -214,16 +248,24 @@ export function PortalDashboard({ role, initialData }) {
     return data.shipments.filter((shipment) => {
       const matchesText =
         !shipmentFilter ||
-        [shipment.tracking_number, shipment.title, shipment.recipient_name, shipment.partner_name, shipment.driver_name]
+        [
+          shipment.tracking_number,
+          shipment.title,
+          shipment.recipient_name,
+          shipment.partner_name,
+          shipment.driver_name,
+          ...shipmentDateSearchTerms(shipment.created_at)
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase()
           .includes(shipmentFilter.toLowerCase())
 
       const matchesStatus = statusFilter === "all" || shipment.status === statusFilter
-      return matchesText && matchesStatus
+      const matchesDateRange = shipmentMatchesDateRange(shipment, shipmentDateFrom, shipmentDateTo)
+      return matchesText && matchesStatus && matchesDateRange
     })
-  }, [data.shipments, shipmentFilter, statusFilter])
+  }, [data.shipments, shipmentDateFrom, shipmentDateTo, shipmentFilter, statusFilter])
 
   const getNextStatusLabel = (status) => {
     const index = progressStatuses.findIndex((step) => step.key === status)
@@ -340,26 +382,31 @@ export function PortalDashboard({ role, initialData }) {
   }, [adminSearch, pendingApplications])
   const adminShipments = useMemo(() => {
     const query = adminSearch.trim().toLowerCase()
-    if (!query) return data.shipments
-    return data.shipments.filter((shipment) =>
-      [
-        shipment.tracking_number,
-        shipment.title,
-        shipment.recipient_name,
-        shipment.recipient_phone,
-        shipment.recipient_address,
-        shipment.governorate,
-        shipment.city,
-        shipment.partner_name,
-        shipment.driver_name,
-        statusLabels[shipment.status] ?? shipment.status
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    )
-  }, [adminSearch, data.shipments, statusLabels])
+    return data.shipments.filter((shipment) => {
+      const matchesQuery =
+        !query ||
+        [
+          shipment.tracking_number,
+          shipment.title,
+          shipment.recipient_name,
+          shipment.recipient_phone,
+          shipment.recipient_address,
+          shipment.governorate,
+          shipment.city,
+          shipment.partner_name,
+          shipment.driver_name,
+          statusLabels[shipment.status] ?? shipment.status,
+          ...shipmentDateSearchTerms(shipment.created_at)
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+
+      const matchesDateRange = shipmentMatchesDateRange(shipment, adminDateFrom, adminDateTo)
+      return matchesQuery && matchesDateRange
+    })
+  }, [adminDateFrom, adminDateTo, adminSearch, data.shipments, statusLabels])
   const adminSettingsItems = useMemo(() => {
     const query = adminSearch.trim().toLowerCase()
     if (!query) return companySettingsRecords
@@ -1059,6 +1106,18 @@ export function PortalDashboard({ role, initialData }) {
                   placeholder="Recherche multi-critere : nom, email, telephone, gouvernorat, statut..."
                   onChange={(event) => setAdminSearch(event.target.value)}
                 />
+                {adminSection === "shipments" ? (
+                  <div className="date-range-group">
+                    <label className="date-filter-field">
+                      <span>Du</span>
+                      <input type="date" value={adminDateFrom} onChange={(event) => setAdminDateFrom(event.target.value)} />
+                    </label>
+                    <label className="date-filter-field">
+                      <span>Au</span>
+                      <input type="date" value={adminDateTo} onChange={(event) => setAdminDateTo(event.target.value)} />
+                    </label>
+                  </div>
+                ) : null}
                 <div className="admin-toolbar-actions">
                   {adminSection === "shipments" ? (
                     <>
@@ -1456,6 +1515,8 @@ export function PortalDashboard({ role, initialData }) {
                 onClick={() => {
                   setAdminSection(section.key)
                   setAdminSearch("")
+                  setAdminDateFrom("")
+                  setAdminDateTo("")
                 }}
               >
                 {section.label}
@@ -1479,6 +1540,16 @@ export function PortalDashboard({ role, initialData }) {
             </div>
             <div className="toolbar">
               <input placeholder="Tracking, client, titre..." value={shipmentFilter} onChange={(event) => setShipmentFilter(event.target.value)} />
+              <div className="date-range-group">
+                <label className="date-filter-field">
+                  <span>Du</span>
+                  <input type="date" value={shipmentDateFrom} onChange={(event) => setShipmentDateFrom(event.target.value)} />
+                </label>
+                <label className="date-filter-field">
+                  <span>Au</span>
+                  <input type="date" value={shipmentDateTo} onChange={(event) => setShipmentDateTo(event.target.value)} />
+                </label>
+              </div>
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                 <option value="all">Tous les statuts</option>
                 {shipmentStatuses.map((step) => (

@@ -315,6 +315,30 @@ label {
   color: rgba(247, 241, 228, 0.72);
 }
 
+.date-range-group {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.date-filter-field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 138px;
+}
+
+.date-filter-field span {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(247, 241, 228, 0.66);
+}
+
+.date-filter-field input {
+  min-height: 46px;
+}
+
 .landing-stats {
   margin-top: 1.5rem;
 }
