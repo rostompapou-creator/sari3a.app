@@ -780,7 +780,7 @@ export function PortalDashboard({ role, initialData }) {
       resetShipmentForm()
     }
 
-    if (role === "admin") {
+    if (role === "admin" || role === "client") {
       setAdminDialog({ type: "shipment-form" })
       return
     }
@@ -1558,9 +1558,93 @@ export function PortalDashboard({ role, initialData }) {
                   </option>
                 ))}
               </select>
+              {role === "client" ? (
+                <div className="client-toolbar-actions">
+                  <IconButton icon="add" label="Creer un colis" className="primary-button" onClick={() => openShipmentEditor()} />
+                  <IconButton icon="print" label="Imprimer la liste des colis" onClick={() => printShipmentList("Liste des colis", dashboardShipments)} />
+                </div>
+              ) : null}
             </div>
           </div>
 
+          {role === "client" ? (
+            <div className="admin-table-shell">
+              {dashboardShipments.length ? (
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Tracking</th>
+                      <th>Titre</th>
+                      <th>Cree le</th>
+                      <th>Statut</th>
+                      <th>Gouvernorat</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboardShipments.map((shipment) => (
+                      <tr key={shipment.id} className={selectedShipment?.id === shipment.id ? "client-row-selected" : ""} onClick={() => setSelectedShipmentId(shipment.id)}>
+                        <td>{shipment.tracking_number}</td>
+                        <td>{shipment.title}</td>
+                        <td>{formatDateTime(shipment.created_at)}</td>
+                        <td>{statusLabels[shipment.status] ?? TRACKING_LABELS[shipment.status] ?? shipment.status}</td>
+                        <td>{shipment.governorate || "-"}</td>
+                        <td>
+                          <div className="admin-table-actions">
+                            <IconButton
+                              icon="view"
+                              label={`Voir le colis ${shipment.tracking_number}`}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                openShipmentView(shipment)
+                              }}
+                            />
+                            {["pending", "picked_up"].includes(shipment.status) ? (
+                              <IconButton
+                                icon="edit"
+                                label={`Modifier le colis ${shipment.tracking_number}`}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  openShipmentEditor(shipment)
+                                }}
+                              />
+                            ) : null}
+                            <IconButton
+                              icon="print"
+                              label={`Imprimer le colis ${shipment.tracking_number}`}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                printShipment(shipment)
+                              }}
+                            />
+                            {shipment.status === "pending" ? (
+                              <IconButton
+                                icon="delete"
+                                label={`Supprimer le colis ${shipment.tracking_number}`}
+                                className="ghost-button"
+                                disabled={busyAction === `delete-${shipment.id}`}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  handleDeleteShipment(shipment.id)
+                                }}
+                              />
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="mini-card">
+                  <strong>Aucun colis trouve</strong>
+                  <span>Creez votre premier colis depuis l'icone ajouter.</span>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {role !== "client" ? (
           <div className="shipment-list">
             {dashboardShipments.map((shipment) => (
               <article key={shipment.id} className={`shipment-card ${selectedShipment?.id === shipment.id ? "selected" : ""}`} onClick={() => setSelectedShipmentId(shipment.id)}>
@@ -1594,6 +1678,7 @@ export function PortalDashboard({ role, initialData }) {
               </article>
             ))}
           </div>
+          ) : null}
         </div>
 
         <div className="panel glass-card">
@@ -1647,12 +1732,38 @@ export function PortalDashboard({ role, initialData }) {
           )}
         </div>
 
-        {(role === "client" || role === "partner") ? (
+        {role === "client" ? (
+          <div className="panel glass-card">
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Consultation</p>
+                <h2>Fiche colis</h2>
+              </div>
+              {selectedShipment ? <span className={`status-pill ${statusClass(selectedShipment.status)}`}>{selectedShipment.tracking_number}</span> : null}
+            </div>
+
+            {selectedShipment ? (
+              <div className="application-detail-grid">
+                <article><span>Titre</span><strong>{selectedShipment.title}</strong></article>
+                <article><span>Date de creation</span><strong>{formatDateTime(selectedShipment.created_at)}</strong></article>
+                <article><span>Destinataire</span><strong>{selectedShipment.recipient_name}</strong></article>
+                <article><span>Telephone</span><strong>{selectedShipment.recipient_phone || "-"}</strong></article>
+                <article className="application-detail-wide"><span>Adresse</span><strong>{selectedShipment.recipient_address || "-"}</strong></article>
+                <article><span>Gouvernorat</span><strong>{selectedShipment.governorate || "-"}</strong></article>
+                <article><span>Ville</span><strong>{selectedShipment.city || "-"}</strong></article>
+                <article><span>Frais livraison</span><strong>{money(selectedShipment.delivery_fee)} DT</strong></article>
+                <article><span>COD</span><strong>{money(selectedShipment.cod_amount)} DT</strong></article>
+              </div>
+            ) : (
+              <p>Aucun colis selectionne.</p>
+            )}
+          </div>
+        ) : role === "partner" ? (
           <div className="panel glass-card">
             <div className="panel-header">
               <div>
                 <p className="eyebrow">{editingShipmentId ? "Edition" : "Creation"}</p>
-                <h2>{role === "client" ? "Demande de livraison" : "CRUD colis"}</h2>
+                <h2>CRUD colis</h2>
               </div>
               {editingShipmentId ? (
                 <button type="button" className="secondary-button" onClick={resetShipmentForm}>
@@ -2735,7 +2846,7 @@ export function PortalDashboard({ role, initialData }) {
             <div className="panel-header">
               <div>
                 <p className="eyebrow">{editingShipmentId ? "Edition" : "Creation"}</p>
-                <h2>CRUD colis</h2>
+                <h2>{role === "client" ? "Demande de livraison" : "CRUD colis"}</h2>
               </div>
               <button type="button" className="secondary-button" onClick={() => { resetShipmentForm(); closeAdminDialog() }}>
                 Fermer
@@ -2757,45 +2868,51 @@ export function PortalDashboard({ role, initialData }) {
                 Description
                 <textarea rows="2" value={shipmentForm.description} onChange={(event) => setShipmentForm((current) => ({ ...current, description: event.target.value }))} />
               </label>
-              <div className="grid-two">
-                <label>
-                  Partenaire
-                  <select value={shipmentForm.partner_id} onChange={(event) => setShipmentForm((current) => ({ ...current, partner_id: event.target.value }))} required>
-                    <option value="">Choisir</option>
-                    {data.partners.map((partner) => (
-                      <option key={partner.id} value={partner.id}>{partner.full_name}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Client
-                  <select value={shipmentForm.client_id} onChange={(event) => setShipmentForm((current) => ({ ...current, client_id: event.target.value }))} required>
-                    <option value="">Choisir</option>
-                    {data.clients.map((client) => (
-                      <option key={client.id} value={client.id}>{client.full_name}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="grid-two">
-                <label>
-                  Livreur
-                  <select value={shipmentForm.driver_id} onChange={(event) => setShipmentForm((current) => ({ ...current, driver_id: event.target.value }))}>
-                    <option value="">Aucun</option>
-                    {data.drivers.map((driver) => (
-                      <option key={driver.id} value={driver.id}>{driver.full_name}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Statut
-                  <select value={shipmentForm.status} onChange={(event) => setShipmentForm((current) => ({ ...current, status: event.target.value }))}>
-                    {shipmentStatuses.map((status) => (
-                      <option key={status.key} value={status.key}>{status.label}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              {(role === "partner" || role === "admin") ? (
+                <div className="grid-two">
+                  {role === "admin" ? (
+                    <label>
+                      Partenaire
+                      <select value={shipmentForm.partner_id} onChange={(event) => setShipmentForm((current) => ({ ...current, partner_id: event.target.value }))} required>
+                        <option value="">Choisir</option>
+                        {data.partners.map((partner) => (
+                          <option key={partner.id} value={partner.id}>{partner.full_name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  <label>
+                    Client
+                    <select value={shipmentForm.client_id} onChange={(event) => setShipmentForm((current) => ({ ...current, client_id: event.target.value }))} required>
+                      <option value="">Choisir</option>
+                      {data.clients.map((client) => (
+                        <option key={client.id} value={client.id}>{client.full_name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+              {(role === "partner" || role === "admin") ? (
+                <div className="grid-two">
+                  <label>
+                    Livreur
+                    <select value={shipmentForm.driver_id} onChange={(event) => setShipmentForm((current) => ({ ...current, driver_id: event.target.value }))}>
+                      <option value="">Aucun</option>
+                      {data.drivers.map((driver) => (
+                        <option key={driver.id} value={driver.id}>{driver.full_name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Statut
+                    <select value={shipmentForm.status} onChange={(event) => setShipmentForm((current) => ({ ...current, status: event.target.value }))}>
+                      {shipmentStatuses.map((status) => (
+                        <option key={status.key} value={status.key}>{status.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
               <div className="grid-two">
                 <label>
                   Gouvernorat

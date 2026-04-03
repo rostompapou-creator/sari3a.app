@@ -601,6 +601,13 @@ label {
   gap: 1rem;
 }
 
+.client-toolbar-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-left: auto;
+}
+
 .admin-hero-center {
   flex: 1 1 auto;
   display: grid;
@@ -1094,6 +1101,10 @@ label {
 
 .admin-table tbody tr:hover {
   background: rgba(214, 163, 40, 0.06);
+}
+
+.client-row-selected {
+  background: rgba(214, 163, 40, 0.08);
 }
 
 .admin-table-actions {
