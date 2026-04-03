@@ -441,6 +441,11 @@ label {
   color: rgba(247, 241, 228, 0.7);
 }
 
+.shipment-created-at {
+  font-size: 0.86rem;
+  color: rgba(241, 209, 123, 0.86) !important;
+}
+
 .stats-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }

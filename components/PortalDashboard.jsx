@@ -50,6 +50,11 @@ function money(value) {
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Number(value || 0))
 }
 
+function formatDateTime(value) {
+  if (!value) return "-"
+  return new Date(value).toLocaleString("fr-FR")
+}
+
 function statusClass(status) {
   if (STATUS_COLORS[status]) return STATUS_COLORS[status]
   if (String(status).includes("refus") || String(status).includes("cancel")) return "status-rejected"
@@ -872,6 +877,7 @@ export function PortalDashboard({ role, initialData }) {
             <div class="grid">
               <div><div class="label">Tracking</div><div class="value">${escapeHtml(shipment.tracking_number)}</div></div>
               <div><div class="label">Statut</div><div class="value">${escapeHtml(statusLabels[shipment.status] ?? shipment.status)}</div></div>
+              <div><div class="label">Date creation</div><div class="value">${escapeHtml(formatDateTime(shipment.created_at))}</div></div>
               <div><div class="label">Titre</div><div class="value">${escapeHtml(shipment.title)}</div></div>
               <div><div class="label">Destinataire</div><div class="value">${escapeHtml(shipment.recipient_name)}</div></div>
               <div><div class="label">Telephone</div><div class="value">${escapeHtml(shipment.recipient_phone || "-")}</div></div>
@@ -1011,6 +1017,7 @@ export function PortalDashboard({ role, initialData }) {
             <tr>
               <th>Tracking</th>
               <th>Titre</th>
+              <th>Cree le</th>
               <th>Statut</th>
               <th>Destinataire</th>
               <th>Partenaire</th>
@@ -1024,6 +1031,7 @@ export function PortalDashboard({ role, initialData }) {
                   <tr>
                     <td>${escapeHtml(shipment.tracking_number)}</td>
                     <td>${escapeHtml(shipment.title)}</td>
+                    <td>${escapeHtml(formatDateTime(shipment.created_at))}</td>
                     <td>${escapeHtml(statusLabels[shipment.status] ?? shipment.status)}</td>
                     <td>${escapeHtml(shipment.recipient_name)}</td>
                     <td>${escapeHtml(shipment.partner_name || "-")}</td>
@@ -1119,6 +1127,7 @@ export function PortalDashboard({ role, initialData }) {
                         <tr>
                           <th>Tracking</th>
                           <th>Titre</th>
+                          <th>Cree le</th>
                           <th>Statut</th>
                           <th>Partenaire</th>
                           <th>Livreur</th>
@@ -1131,6 +1140,7 @@ export function PortalDashboard({ role, initialData }) {
                           <tr key={shipment.id}>
                             <td>{shipment.tracking_number}</td>
                             <td>{shipment.title}</td>
+                            <td>{formatDateTime(shipment.created_at)}</td>
                             <td>{statusLabels[shipment.status] ?? shipment.status}</td>
                             <td>{shipment.partner_name || "-"}</td>
                             <td>{shipment.driver_name || "-"}</td>
@@ -1490,6 +1500,7 @@ export function PortalDashboard({ role, initialData }) {
                   </div>
                   <span className={`status-pill ${statusClass(shipment.status)}`}>{statusLabels[shipment.status] ?? TRACKING_LABELS[shipment.status] ?? shipment.status}</span>
                 </div>
+                <p className="shipment-created-at">Cree le {formatDateTime(shipment.created_at)}</p>
                 <p>{shipment.recipient_name} · {shipment.governorate}</p>
                 <p>{shipment.partner_name ?? "Partenaire non affecte"} · {shipment.driver_name ?? "Livreur a assigner"}</p>
                 <div className="shipment-actions">
@@ -2804,6 +2815,7 @@ export function PortalDashboard({ role, initialData }) {
             <div className="application-detail-grid">
               <article><span>Titre</span><strong>{viewedShipment.title}</strong></article>
               <article><span>Statut</span><strong>{statusLabels[viewedShipment.status] ?? viewedShipment.status}</strong></article>
+              <article><span>Date de creation</span><strong>{formatDateTime(viewedShipment.created_at)}</strong></article>
               <article><span>Destinataire</span><strong>{viewedShipment.recipient_name}</strong></article>
               <article><span>Telephone</span><strong>{viewedShipment.recipient_phone || "-"}</strong></article>
               <article><span>Adresse</span><strong>{viewedShipment.recipient_address || "-"}</strong></article>
