@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet"
+import { useEffect, useMemo } from "react"
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet"
 import L from "leaflet"
 import { TRACKING_LABELS, TUNISIA_CENTER } from "../lib/constants"
 
@@ -12,6 +12,29 @@ function badgeIcon(label, tone) {
     iconSize: [34, 34],
     iconAnchor: [17, 17]
   })
+}
+
+function MapLayoutFix() {
+  const map = useMap()
+
+  useEffect(() => {
+    const refresh = () => {
+      window.requestAnimationFrame(() => {
+        map.invalidateSize()
+      })
+    }
+
+    refresh()
+    const timeoutId = window.setTimeout(refresh, 180)
+    window.addEventListener("resize", refresh)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      window.removeEventListener("resize", refresh)
+    }
+  }, [map])
+
+  return null
 }
 
 export default function TrackingMap({ shipments = [], drivers = [], selectedShipmentId = null }) {
@@ -38,6 +61,7 @@ export default function TrackingMap({ shipments = [], drivers = [], selectedShip
   return (
     <div className="map-shell">
       <MapContainer center={center} zoom={7} scrollWheelZoom className="map-canvas">
+        <MapLayoutFix />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

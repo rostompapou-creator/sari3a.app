@@ -203,7 +203,9 @@ export function PortalDashboard({ role, initialData }) {
   const [shipmentForm, setShipmentForm] = useState(() => ({
     ...shipmentTemplate,
     partner_id: role === "partner" ? String(initialData.user.id) : "",
-    client_id: role === "client" ? String(initialData.user.id) : ""
+    client_id: role === "client" ? String(initialData.user.id) : "",
+    title: role === "client" ? initialData.user.full_name : "",
+    recipient_name: ""
   }))
   const [userForm, setUserForm] = useState(userTemplate)
   const [settingsForm, setSettingsForm] = useState(() => ({
@@ -459,8 +461,9 @@ export function PortalDashboard({ role, initialData }) {
       ...shipmentTemplate,
       partner_id: role === "partner" ? String(data.user.id) : "",
       client_id: role === "client" ? String(data.user.id) : "",
+      title: role === "client" ? data.user.full_name : "",
       status: "pending",
-      recipient_name: role === "client" ? data.user.full_name : "",
+      recipient_name: "",
       recipient_phone: role === "client" ? data.user.phone ?? "" : "",
       recipient_address: role === "client" ? data.user.address ?? "" : "",
       governorate: data.user.governorate ?? "Tunis"
